@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const API_BASE = '/api'
 
@@ -7,8 +7,6 @@ function App() {
   const [runs, setRuns] = useState([])
   const [selectedRun, setSelectedRun] = useState(null)
   const [trends, setTrends] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [newRunConfig, setNewRunConfig] = useState({ num_agents: 5, turns_per_run: 10 })
 
   useEffect(() => {
     fetchRuns()
@@ -39,24 +37,6 @@ function App() {
     }
   }
 
-  const startRun = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch(`${API_BASE}/runs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newRunConfig)
-      })
-      if (res.ok) {
-        await fetchRuns()
-        await fetchTrends()
-      }
-    } catch (e) {
-      console.error('Failed to start run:', e)
-    }
-    setLoading(false)
-  }
-
   const selectRun = async (runId) => {
     try {
       const res = await fetch(`${API_BASE}/runs/${runId}`)
@@ -82,34 +62,18 @@ function App() {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {/* New Run Section */}
+        {/* Refresh Section */}
         <section className="bg-white rounded-lg border border-slate-200 p-6 mb-8">
-          <h2 className="text-lg font-medium text-slate-800 mb-4">Start New Run</h2>
-          <div className="flex gap-4 items-end">
-            <div>
-              <label className="block text-sm text-slate-600 mb-1">Agents</label>
-              <input
-                type="number"
-                value={newRunConfig.num_agents}
-                onChange={(e) => setNewRunConfig({ ...newRunConfig, num_agents: parseInt(e.target.value) })}
-                className="border border-slate-300 rounded px-3 py-2 w-24 text-slate-800"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-slate-600 mb-1">Turns</label>
-              <input
-                type="number"
-                value={newRunConfig.turns_per_run}
-                onChange={(e) => setNewRunConfig({ ...newRunConfig, turns_per_run: parseInt(e.target.value) })}
-                className="border border-slate-300 rounded px-3 py-2 w-24 text-slate-800"
-              />
-            </div>
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-medium text-slate-800">Simulation Data</h2>
             <button
-              onClick={startRun}
-              disabled={loading}
-              className="bg-slate-800 text-white px-6 py-2 rounded hover:bg-slate-700 disabled:opacity-50"
+              onClick={() => {
+                fetchRuns()
+                fetchTrends()
+              }}
+              className="bg-slate-800 text-white px-6 py-2 rounded hover:bg-slate-700"
             >
-              {loading ? 'Running...' : 'Start Run'}
+              Refresh
             </button>
           </div>
         </section>
