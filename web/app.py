@@ -51,6 +51,29 @@ class AgentActionRequest(BaseModel):
     payload: Dict = {}
 
 
+# ==================== Root Endpoint ====================
+
+@app.get("/")
+def root():
+    """Root endpoint - shows API info and links."""
+    return {
+        "name": "Agent Arena API",
+        "description": "Multi-agent LLM simulation in DeFi markets",
+        "version": "0.1.0",
+        "links": {
+            "docs": "/docs",
+            "health": "/health",
+            "runs": "/api/runs",
+            "trends": "/api/analysis/trends"
+        },
+        "usage": {
+            "start_run": "POST /api/runs with {\"num_agents\": 5, \"turns_per_run\": 10}",
+            "list_runs": "GET /api/runs",
+            "view_run": "GET /api/runs/{id}"
+        }
+    }
+
+
 # ==================== Health Endpoints ====================
 
 @app.get("/health")
