@@ -66,7 +66,18 @@ function App() {
       {/* Header */}
       <header className={`${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} border-b px-6 py-4`}>
         <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <h1 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>DeFi Agent Arena</h1>
+          <div className="flex items-center gap-3">
+            <svg width="36" height="36" viewBox="0 0 100 100" className={darkMode ? 'opacity-90' : ''}>
+              <circle cx="50" cy="50" r="45" fill="currentColor" className={darkMode ? 'text-slate-700' : 'text-slate-800'}/>
+              <circle cx="35" cy="45" r="12" className="text-green-500"/>
+              <circle cx="65" cy="45" r="12" className="text-green-500"/>
+              <circle cx="50" cy="70" r="12" className="text-green-500"/>
+              <line x1="35" y1="45" x2="65" y2="45" stroke="currentColor" strokeWidth="4" className={darkMode ? 'text-slate-800' : 'text-slate-800'}/>
+              <line x1="35" y1="45" x2="50" y2="70" stroke="currentColor" strokeWidth="4" className={darkMode ? 'text-slate-800' : 'text-slate-800'}/>
+              <line x1="65" y1="45" x2="50" y2="70" stroke="currentColor" strokeWidth="4" className={darkMode ? 'text-slate-800' : 'text-slate-800'}/>
+            </svg>
+            <h1 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>DeFi Agent Arena</h1>
+          </div>
           <div className="flex gap-4 items-center">
             <span className={`text-sm ${trends ? 'text-green-500' : 'text-red-500'}`}>
               {trends ? 'Connected' : 'Disconnected'}
