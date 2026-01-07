@@ -292,11 +292,11 @@ function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {(selectedRun.agents || []).map((agent, i) => (
+                      {(selectedRun.agent_states || []).map((agent, i) => (
                         <tr key={i} className="border-b border-slate-700">
-                          <td className="py-2 px-3 text-white">{agent.name}</td>
-                          <td className="py-2 px-3 text-slate-300">{agent.token_a?.toFixed(2)}</td>
-                          <td className="py-2 px-3 text-slate-300">{agent.token_b?.toFixed(2)}</td>
+                          <td className="py-2 px-3 text-white">{agent.agent_name}</td>
+                          <td className="py-2 px-3 text-slate-300">{agent.token_a_balance?.toFixed(2)}</td>
+                          <td className="py-2 px-3 text-slate-300">{agent.token_b_balance?.toFixed(2)}</td>
                           <td className={`py-2 px-3 ${agent.profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                             {agent.profit?.toFixed(2)}
                           </td>
