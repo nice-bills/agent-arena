@@ -1,0 +1,32 @@
+name: Run Scheduler
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      num_agents:
+        description: 'Number of agents'
+        required: false
+        default: '5'
+      turns_per_run:
+        description: 'Turns per run'
+        required: false
+        default: '10'
+
+jobs:
+  trigger-simulation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger DeFi Agent Simulation
+        run: |
+          curl -X POST "${{ secrets.HF_SPACE_URL }}/api/runs" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "num_agents": ${{ github.event.inputs.num_agents || 5 }},
+              "turns_per_run": ${{ github.event.inputs.turns_per_run || 10 }}
+            }'
+        env:
+          HF_SPACE_URL: ${{ secrets.HF_SPACE_URL }}
