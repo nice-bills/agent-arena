@@ -259,13 +259,13 @@ def test_client():
 
         # Health check
         if client.health_check():
-            print("✓ Connection healthy")
+            print("[OK] Connection healthy")
         else:
-            print("✗ Connection failed")
+            print("[FAIL] Connection failed")
 
         # Try to get runs
         runs = client.get_all_runs()
-        print(f"✓ Retrieved {len(runs)} runs")
+        print(f"[OK] Retrieved {len(runs)} runs")
 
     except ValueError as e:
         print(f"Configuration error: {e}")
