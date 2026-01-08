@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from core.agent import Agent
 from core.defi_mechanics import Pool
+from core.summarizer import Summarizer
 from api.supabase_client import (
     SupabaseClient, RunData, AgentStateData, PoolStateData, ActionData, MetricsData
 )
@@ -92,6 +93,14 @@ class Simulation:
                     pool_stability=metrics.get("pool_stability", 0)
                 )
             )
+
+            # Generate and save run summary
+            try:
+                summarizer = Summarizer(supabase=self.supabase)
+                summary = summarizer.summarize_and_save(self.current_run_id)
+                print(f"Generated summary for run {self.current_run_id}")
+            except Exception as e:
+                print(f"Warning: Failed to generate summary - {e}")
 
         # Update agent learning
         for agent in self.agents:

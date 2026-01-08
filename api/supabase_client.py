@@ -72,6 +72,13 @@ class MetricsData:
     pool_stability: float = 0
 
 
+@dataclass
+class SummaryData:
+    """Data class for run summary."""
+    run_id: int
+    summary_text: str
+
+
 class SupabaseClient:
     """Client for interacting with Supabase database."""
 
@@ -239,6 +246,39 @@ class SupabaseClient:
             "pool_states": pool,
             "metrics": metrics
         }
+
+    # ==================== RUN SUMMARIES ====================
+
+    def save_run_summary(self, data: SummaryData):
+        """Save a run summary to database."""
+        self.client.table("run_summaries").insert({
+            "run_id": data.run_id,
+            "summary_text": data.summary_text
+        }).execute()
+
+    def get_run_summary(self, run_id: int) -> Optional[Dict]:
+        """Get summary for a specific run."""
+        response = self.client.table("run_summaries").select("*").eq("run_id", run_id).execute()
+        return response.data[0] if response.data else None
+
+    def get_all_summaries(self) -> List[Dict]:
+        """Get all run summaries."""
+        response = self.client.table("run_summaries").select("*").order("run_id", desc=True).execute()
+        return response.data
+
+    # ==================== AGENT PROFITS ====================
+
+    def get_agent_profits_all_runs(self, agent_name: str) -> List[Dict]:
+        """Get profit history for an agent across all runs."""
+        # Get the latest state for each run for this agent
+        response = self.client.table("agent_states").select("*").eq("agent_name", agent_name).order("run_id").execute()
+        return response.data
+
+    def get_all_agent_names(self) -> List[str]:
+        """Get all unique agent names."""
+        response = self.client.table("agent_states").select("agent_name").execute()
+        names = set(item["agent_name"] for item in response.data)
+        return sorted(list(names))
 
     # ==================== UTILITY ====================
 

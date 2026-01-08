@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 const getApiBase = () => {
   const url = import.meta.env.VITE_API_URL || ''
@@ -14,11 +14,17 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [terminalLogs, setTerminalLogs] = useState([])
   const [isTerminalConnected, setIsTerminalConnected] = useState(false)
+  const [summaries, setSummaries] = useState([])
+  const [agents, setAgents] = useState([])
+  const [selectedAgent, setSelectedAgent] = useState(null)
+  const [agentProfitData, setAgentProfitData] = useState([])
 
   useEffect(() => {
     fetchRuns()
     fetchTrends()
     fetchLatestRunForTerminal()
+    fetchSummaries()
+    fetchAgents()
   }, [])
 
   const fetchRuns = async () => {
@@ -44,6 +50,61 @@ function App() {
       console.error('Failed to fetch trends:', e)
     }
   }
+
+  const fetchSummaries = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/summaries`)
+      if (res.ok) {
+        const data = await res.json()
+        setSummaries(data.summaries || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch summaries:', e)
+    }
+  }
+
+  const fetchAgents = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/agents`)
+      if (res.ok) {
+        const data = await res.json()
+        setAgents(data.agents || [])
+        if (data.agents?.length > 0) {
+          setSelectedAgent(data.agents[0])
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch agents:', e)
+    }
+  }
+
+  const fetchAgentProfits = async (agentName) => {
+    if (!agentName) return
+    try {
+      const res = await fetch(`${API_BASE}/agents/${agentName}/profits`)
+      if (res.ok) {
+        const data = await res.json()
+        // Group by run to show profit trajectory
+        const grouped = {}
+        data.data?.forEach(item => {
+          const runKey = `Run ${item.run}`
+          if (!grouped[runKey]) {
+            grouped[runKey] = { run: item.run, name: runKey }
+          }
+          grouped[runKey].profit = item.profit
+        })
+        setAgentProfitData(Object.values(grouped))
+      }
+    } catch (e) {
+      console.error('Failed to fetch agent profits:', e)
+    }
+  }
+
+  useEffect(() => {
+    if (selectedAgent) {
+      fetchAgentProfits(selectedAgent)
+    }
+  }, [selectedAgent])
 
   const fetchLatestRunForTerminal = async () => {
     try {
@@ -147,6 +208,16 @@ function App() {
           }`}
         >
           Dashboard
+        </button>
+        <button
+          onClick={() => setActiveTab('summaries')}
+          className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'summaries'
+              ? 'border-green-500 text-white'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          Summaries
         </button>
         <button
           onClick={() => setActiveTab('terminal')}
@@ -309,6 +380,78 @@ function App() {
               </section>
             )}
           </>
+        ) : activeTab === 'summaries' ? (
+          /* Summaries Tab */
+          <div className="space-y-8">
+            {/* Agent Profit Chart */}
+            <section className="bg-slate-800 border-slate-700 rounded-lg border p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-medium text-white">Agent Profit Over Time</h2>
+                <select
+                  value={selectedAgent || ''}
+                  onChange={(e) => setSelectedAgent(e.target.value)}
+                  className="px-4 py-2 rounded bg-slate-700 text-white border border-slate-600"
+                >
+                  {agents.map(agent => (
+                    <option key={agent} value={agent}>{agent}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={agentProfitData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="name" stroke="#94a3b8" />
+                    <YAxis stroke="#94a3b8" />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
+                      labelStyle={{ color: '#fff' }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="profit"
+                      stroke="#22c55e"
+                      strokeWidth={2}
+                      dot={{ fill: '#22c55e' }}
+                      name="Profit"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+            {/* Run Summaries */}
+            <section className="bg-slate-800 border-slate-700 rounded-lg border p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-medium text-white">Run Summaries</h2>
+                <button
+                  onClick={() => fetchSummaries()}
+                  className="px-4 py-2 rounded bg-slate-700 text-white hover:bg-slate-600 text-sm"
+                >
+                  Refresh
+                </button>
+              </div>
+              {summaries.length === 0 ? (
+                <p className="text-slate-400">No summaries yet. Summaries are generated after each run.</p>
+              ) : (
+                <div className="space-y-6">
+                  {summaries.map((summary) => (
+                    <div key={summary.id} className="border-b border-slate-700 pb-6 last:border-0 last:pb-0">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="text-white font-medium">Run {summary.run_id}</h3>
+                        <span className="text-sm text-slate-500">
+                          {new Date(summary.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="text-slate-300 text-sm whitespace-pre-wrap">
+                        {summary.summary_text}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
         ) : (
           /* Terminal Tab - Retro Style */
           <div className="bg-slate-800 border-slate-700 rounded-lg border p-6">

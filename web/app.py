@@ -9,6 +9,7 @@ import json
 from api.supabase_client import SupabaseClient
 from core.simulation import Simulation
 from core.analyzer import Analyzer
+from core.summarizer import Summarizer
 
 app = FastAPI(
     title="DeFi Agents API",
@@ -214,6 +215,92 @@ def get_arms_race_analysis(run_id: int):
         actions = supabase.get_actions(run_id)
         analysis = Analyzer.detect_arms_races(actions)
         return analysis
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== Summary Endpoints ====================
+
+@app.get("/api/runs/{run_id}/summary")
+def get_run_summary(run_id: int):
+    """Get summary for a specific run."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        summary = supabase.get_run_summary(run_id)
+        if not summary:
+            return {"run_id": run_id, "summary": None, "message": "No summary generated yet"}
+        return summary
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/summaries")
+def get_all_summaries():
+    """Get all run summaries."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        summaries = supabase.get_all_summaries()
+        return {"summaries": summaries}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/runs/{run_id}/generate-summary")
+def generate_run_summary(run_id: int):
+    """Generate and save a summary for a run."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        summarizer = Summarizer(supabase=supabase)
+        result = summarizer.summarize_and_save(run_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== Agent Profit Endpoints ====================
+
+@app.get("/api/agents")
+def get_all_agents():
+    """Get all unique agent names."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        agents = supabase.get_all_agent_names()
+        return {"agents": agents}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/agents/{agent_name}/profits")
+def get_agent_profits(agent_name: str):
+    """Get profit history for an agent across all runs."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        profits = supabase.get_agent_profits_all_runs(agent_name)
+
+        # Format for chart: [{run: 1, profit: 0, turn: 0}, ...]
+        chart_data = []
+        for p in profits:
+            chart_data.append({
+                "run": p["run_id"],
+                "turn": p["turn"],
+                "profit": p["profit"],
+                "strategy": p.get("strategy", "unknown")
+            })
+
+        return {
+            "agent_name": agent_name,
+            "data": chart_data
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
