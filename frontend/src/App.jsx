@@ -438,12 +438,20 @@ function App() {
                   </div>
                   
                   <div className="space-y-4">
-                    {summaries.map(summary => (
-                      <fieldset key={summary.id} className="border border-gray-400 p-2 bg-white">
-                        <legend className="px-1 font-bold">Run {summary.run_id} Report</legend>
-                        <p className="text-xs font-mono whitespace-pre-wrap">{summary.summary_text}</p>
-                      </fieldset>
-                    ))}
+                    {summaries.map(summary => {
+                      // Handle raw JSON content
+                      let text = summary.summary_text || ''
+                      try {
+                        const parsed = JSON.parse(text)
+                        text = parsed.raw_content || parsed.content || parsed.text || text
+                      } catch {}
+                      return (
+                        <fieldset key={summary.id} className="border border-gray-400 p-2 bg-white">
+                          <legend className="px-1 font-bold">Run {summary.run_id} Report</legend>
+                          <p className="text-xs font-mono whitespace-pre-wrap">{text}</p>
+                        </fieldset>
+                      )
+                    })}
                   </div>
                 </div>
               )}

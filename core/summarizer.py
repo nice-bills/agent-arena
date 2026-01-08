@@ -45,7 +45,7 @@ class Summarizer:
 
         # Handle both dict and string responses
         if isinstance(result, dict):
-            response_text = result.get("content", "") or result.get("text", "") or str(result)
+            response_text = result.get("raw_content", "") or result.get("content", "") or result.get("text", "") or str(result)
         else:
             response_text = str(result)
 
