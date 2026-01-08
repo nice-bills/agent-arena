@@ -41,9 +41,15 @@ class Summarizer:
         )
 
         # Generate summary using LLM
-        response = self.minimax.complete(prompt, max_tokens=1024)
+        result, _ = self.minimax.call(prompt)
 
-        return response.strip()
+        # Handle both dict and string responses
+        if isinstance(result, dict):
+            response_text = result.get("content", "") or result.get("text", "") or str(result)
+        else:
+            response_text = str(result)
+
+        return response_text.strip()
 
     def _analyze_agents(self, agent_states: List[Dict]) -> List[Dict]:
         """Analyze agent performance."""
