@@ -195,20 +195,11 @@ function App() {
       
       {/* Taskbar / Header */}
       <div className="win-border-outset bg-[#c0c0c0] p-1 flex justify-between items-center mb-4">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-2 py-1 border border-transparent hover:win-border-outset active:win-border-inset cursor-pointer">
-            <div className="w-4 h-4 bg-gradient-to-br from-blue-400 to-blue-600 border border-black"></div>
-            <h1 className="font-bold">DeFi Agent Arena v1.0</h1>
-          </div>
-          <div className="h-6 w-[2px] bg-gray-500 mx-2 border-r border-white"></div>
-          <div className="flex gap-1">
-             <button className="px-3 py-0.5 win-button active:translate-y-[1px]">File</button>
-             <button className="px-3 py-0.5 win-button active:translate-y-[1px]">Edit</button>
-             <button className="px-3 py-0.5 win-button active:translate-y-[1px]">View</button>
-             <button className="px-3 py-0.5 win-button active:translate-y-[1px]">Help</button>
-          </div>
+        <div className="flex items-center gap-2 px-2">
+          <div className="w-4 h-4 bg-gradient-to-br from-blue-400 to-blue-600 border border-black"></div>
+          <h1 className="font-bold">DeFi Agent Arena v1.0</h1>
         </div>
-        <div className="win-border-inset bg-white px-2 py-0.5 text-xs">
+        <div className="win-border-inset bg-white px-2 py-0.5 text-xs font-mono">
           {new Date().toLocaleTimeString()}
         </div>
       </div>
@@ -220,12 +211,8 @@ function App() {
           
           {/* Simulation Control Panel */}
           <div className="win-border-outset bg-[#c0c0c0] p-1">
-            <div className="bg-[#000080] text-white px-2 py-0.5 font-bold text-sm flex justify-between items-center mb-1">
-              <span>Control Panel</span>
-              <div className="flex gap-0.5">
-                <button className="w-4 h-4 bg-[#c0c0c0] text-black win-button flex items-center justify-center text-[10px] leading-none">_</button>
-                <button className="w-4 h-4 bg-[#c0c0c0] text-black win-button flex items-center justify-center text-[10px] leading-none">X</button>
-              </div>
+            <div className="bg-[#000080] text-white px-2 py-0.5 font-bold text-sm mb-1">
+              Control Panel
             </div>
             <div className="p-3">
               <div className="mb-3">
@@ -313,13 +300,8 @@ function App() {
           
           {/* Main Window */}
           <div className="win-border-outset bg-[#c0c0c0] p-1 flex-1 flex flex-col min-h-[600px]">
-            <div className="bg-[#000080] text-white px-2 py-0.5 font-bold text-sm flex justify-between items-center mb-1">
-              <span>Main Simulation View</span>
-              <div className="flex gap-0.5">
-                <button className="w-4 h-4 bg-[#c0c0c0] text-black win-button flex items-center justify-center text-[10px] leading-none">_</button>
-                <button className="w-4 h-4 bg-[#c0c0c0] text-black win-button flex items-center justify-center text-[10px] leading-none">□</button>
-                <button className="w-4 h-4 bg-[#c0c0c0] text-black win-button flex items-center justify-center text-[10px] leading-none">X</button>
-              </div>
+            <div className="bg-[#000080] text-white px-2 py-0.5 font-bold text-sm mb-1">
+              Main Simulation View
             </div>
 
             {/* Menu Bar (inside window) */}
@@ -439,12 +421,24 @@ function App() {
                   
                   <div className="space-y-4">
                     {summaries.map(summary => {
-                      // Handle raw JSON content
+                      // Handle raw JSON content (Python dict with single quotes)
                       let text = summary.summary_text || ''
                       try {
+                        // Try direct JSON parse first (valid JSON)
                         const parsed = JSON.parse(text)
                         text = parsed.raw_content || parsed.content || parsed.text || text
-                      } catch {}
+                      } catch {
+                        // Try Python dict syntax: {'key': 'value'}
+                        try {
+                          const pythonMatch = text.match(/^\s*\{\s*['"]raw_content['"]:\s*['"](.+?)['"]/s)
+                          if (pythonMatch) {
+                            text = pythonMatch[1]
+                          } else {
+                            // Remove wrapping {} if present
+                            text = text.replace(/^\s*\{.*?raw_content.*?:\s*/s, '').replace(/\}\s*$/s, '')
+                          }
+                        } catch {}
+                      }
                       return (
                         <fieldset key={summary.id} className="border border-gray-400 p-2 bg-white">
                           <legend className="px-1 font-bold">Run {summary.run_id} Report</legend>
