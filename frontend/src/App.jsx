@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
 
 const getApiBase = () => {
@@ -10,7 +9,8 @@ const getApiBase = () => {
 }
 const API_BASE = getApiBase()
 
-const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6']
+// Windows 2000 Palette
+const COLORS = ['#000080', '#008000', '#800000', '#808000', '#800080']
 
 function App() {
   const [runs, setRuns] = useState([])
@@ -24,7 +24,10 @@ function App() {
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [agentProfitData, setAgentProfitData] = useState([])
   const [allAgentsProfitData, setAllAgentsProfitData] = useState([])
-  const terminalRef = useRef(null)
+  
+  // Simulation params
+  const [simConfig, setSimConfig] = useState({ num_agents: 5, turns_per_run: 10 })
+  const [isRunning, setIsRunning] = useState(false)
 
   useEffect(() => {
     fetchRuns()
@@ -33,12 +36,11 @@ function App() {
     fetchAgents()
     fetchAllAgentsProfits()
 
-    // Auto-poll for terminal data when on terminal tab
     const terminalInterval = setInterval(() => {
       if (activeTab === 'terminal') {
         fetchLatestRunForTerminal()
       }
-    }, 5000) // Poll every 5 seconds
+    }, 5000)
 
     return () => clearInterval(terminalInterval)
   }, [activeTab])
@@ -107,32 +109,24 @@ function App() {
     }
   }
 
-  const fetchAgentProfits = async (agentName) => {
-    if (!agentName) return
+  const startSimulation = async () => {
+    setIsRunning(true)
     try {
-      const res = await fetch(`${API_BASE}/agents/${agentName}/profits`)
+      const res = await fetch(`${API_BASE}/runs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(simConfig)
+      })
       if (res.ok) {
-        const data = await res.json()
-        const grouped = {}
-        data.data?.forEach(item => {
-          const runKey = `Run ${item.run}`
-          if (!grouped[runKey]) {
-            grouped[runKey] = { run: item.run, name: runKey }
-          }
-          grouped[runKey].profit = item.profit
-        })
-        setAgentProfitData(Object.values(grouped))
+        await fetchRuns()
+        await fetchTrends()
       }
     } catch (e) {
-      console.error('Failed to fetch agent profits:', e)
+      console.error('Failed to start simulation:', e)
+    } finally {
+      setIsRunning(false)
     }
   }
-
-  useEffect(() => {
-    if (selectedAgent) {
-      fetchAgentProfits(selectedAgent)
-    }
-  }, [selectedAgent])
 
   const fetchLatestRunForTerminal = async () => {
     try {
@@ -158,32 +152,21 @@ function App() {
     const logs = []
     const timestamp = new Date(runDetail.start_time).toLocaleString()
 
-    logs.push(`%c[SYSTEM]%c =========================================`)
-    logs.push(`%c[SYSTEM]%c   DEFI AGENT ARENA - SIMULATION LOG`)
-    logs.push(`%c[SYSTEM]%c =========================================`)
-    logs.push(`%c[SYSTEM]%c Session: ${runDetail.id} | ${timestamp}`)
-    logs.push(`%c[SYSTEM]%c -----------------------------------------`)
+    logs.push(`System Boot: ${timestamp}`)
+    logs.push(`Loading kernel... OK`)
+    logs.push(`Mounting volumes... OK`)
+    logs.push(`Initializing Agent Environment...`)
+    logs.push(`----------------------------------------`)
+    logs.push(`Session ID: ${runDetail.id}`)
 
     const actions = runDetail.actions || []
     actions.forEach((action, i) => {
-      const actionEmoji = {
-        'swap': '<->',
-        'provide_liquidity': '~',
-        'propose_alliance': '=',
-        'do_nothing': 'z'
-      }[action.action_type] || '.'
-
-      const turnPrefix = `[T${action.turn}]`
-      logs.push(`%c[AGENT]%c ${turnPrefix} ${action.agent_name}: ${actionEmoji} ${action.action_type}`)
+      const turnPrefix = `[Turn ${action.turn}]`
+      logs.push(`${turnPrefix} ${action.agent_name}: ${action.action_type}`)
       if (action.reasoning) {
-        const shortReason = action.reasoning.substring(0, 80).replace(/\n/g, ' ')
-        logs.push(`%c[REASON]%c   "${shortReason}..."`)
+        logs.push(`  > ${action.reasoning.substring(0, 60)}...`)
       }
     })
-
-    logs.push(`%c[SYSTEM]%c -----------------------------------------`)
-    logs.push(`%c[METRICS]%c Gini: ${runDetail.metrics?.gini_coefficient?.toFixed(4) || 0} | Profit: ${runDetail.metrics?.avg_agent_profit?.toFixed(2) || 0}`)
-    logs.push(`%c[SYSTEM]%c =========================================`)
 
     setTerminalLogs(logs)
   }
@@ -194,9 +177,6 @@ function App() {
       if (res.ok) {
         const data = await res.json()
         setSelectedRun(data)
-        if (activeTab === 'terminal') {
-          generateTerminalLogs(data)
-        }
       }
     } catch (e) {
       console.error('Failed to fetch run details:', e)
@@ -206,374 +186,293 @@ function App() {
   const formatTime = (isoString) => {
     const date = new Date(isoString)
     return date.toLocaleString('en-US', {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      month: 'numeric', day: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit'
     })
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-800 px-6 py-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-700 rounded-xl flex items-center justify-center">
-                <svg width="28" height="28" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="45" fill="rgba(255,255,255,0.2)"/>
-                  <circle cx="35" cy="45" r="10" fill="white"/>
-                  <circle cx="65" cy="45" r="10" fill="white"/>
-                  <circle cx="50" cy="68" r="10" fill="white"/>
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white">DeFi Agent Arena</h1>
-                <p className="text-slate-500 text-sm">Multi-Agent LLM Simulation</p>
+    <div className="min-h-screen p-4 flex flex-col font-sans text-[13px] bg-[#008080]">
+      
+      {/* Taskbar / Header */}
+      <div className="win-border-outset bg-[#c0c0c0] p-1 flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-2 py-1 border border-transparent hover:win-border-outset active:win-border-inset cursor-pointer">
+            <div className="w-4 h-4 bg-gradient-to-br from-blue-400 to-blue-600 border border-black"></div>
+            <h1 className="font-bold">DeFi Agent Arena v1.0</h1>
+          </div>
+          <div className="h-6 w-[2px] bg-gray-500 mx-2 border-r border-white"></div>
+          <div className="flex gap-1">
+             <button className="px-3 py-0.5 win-button active:translate-y-[1px]">File</button>
+             <button className="px-3 py-0.5 win-button active:translate-y-[1px]">Edit</button>
+             <button className="px-3 py-0.5 win-button active:translate-y-[1px]">View</button>
+             <button className="px-3 py-0.5 win-button active:translate-y-[1px]">Help</button>
+          </div>
+        </div>
+        <div className="win-border-inset bg-white px-2 py-0.5 text-xs">
+          {new Date().toLocaleTimeString()}
+        </div>
+      </div>
+
+      <div className="flex gap-4 flex-1 items-start">
+        
+        {/* Left Column: Sidebar Controls */}
+        <div className="w-64 flex flex-col gap-4">
+          
+          {/* Simulation Control Panel */}
+          <div className="win-border-outset bg-[#c0c0c0] p-1">
+            <div className="bg-[#000080] text-white px-2 py-0.5 font-bold text-sm flex justify-between items-center mb-1">
+              <span>Control Panel</span>
+              <div className="flex gap-0.5">
+                <button className="w-4 h-4 bg-[#c0c0c0] text-black win-button flex items-center justify-center text-[10px] leading-none">_</button>
+                <button className="w-4 h-4 bg-[#c0c0c0] text-black win-button flex items-center justify-center text-[10px] leading-none">X</button>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${
-                trends ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-              }`}>
-                <span className={`w-2 h-2 rounded-full ${trends ? 'bg-green-400' : 'bg-red-400'}`}></span>
-                <span className="text-sm font-medium">{trends ? 'Live' : 'Offline'}</span>
+            <div className="p-3">
+              <div className="mb-3">
+                <label className="block mb-1">Agents:</label>
+                <select 
+                  className="w-full win-border-inset p-1 bg-white"
+                  value={simConfig.num_agents}
+                  onChange={(e) => setSimConfig({...simConfig, num_agents: parseInt(e.target.value)})}
+                >
+                  <option value="3">3 Agents</option>
+                  <option value="5">5 Agents</option>
+                  <option value="8">8 Agents</option>
+                </select>
               </div>
+              <div className="mb-4">
+                <label className="block mb-1">Turns:</label>
+                <input 
+                  type="number" 
+                  className="w-full win-border-inset p-1 bg-white"
+                  value={simConfig.turns_per_run}
+                  onChange={(e) => setSimConfig({...simConfig, turns_per_run: parseInt(e.target.value)})}
+                />
+              </div>
+              <button 
+                onClick={startSimulation}
+                disabled={isRunning}
+                className="w-full win-button py-1 font-bold flex items-center justify-center gap-2"
+              >
+                {isRunning ? 'Running...' : 'Start Simulation'}
+              </button>
             </div>
           </div>
 
-          {/* Stats Bar */}
+          {/* System Status */}
           {trends && (
-            <div className="grid grid-cols-4 gap-4">
-              <div className="bg-slate-800/50 rounded-lg px-4 py-3 border border-slate-700/50">
-                <div className="text-slate-400 text-xs uppercase tracking-wide">Total Runs</div>
-                <div className="text-2xl font-bold text-white mt-1">{trends.run_count}</div>
+            <div className="win-border-outset bg-[#c0c0c0] p-1">
+              <div className="bg-[#808080] text-white px-2 py-0.5 font-bold text-sm mb-1">
+                <span>System Status</span>
               </div>
-              <div className="bg-slate-800/50 rounded-lg px-4 py-3 border border-slate-700/50">
-                <div className="text-slate-400 text-xs uppercase tracking-wide">Avg Profit</div>
-                <div className={`text-2xl font-bold mt-1 ${trends.avg_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {trends.avg_profit >= 0 ? '+' : ''}{trends.avg_profit?.toFixed(2) || 0}
+              <div className="p-2 space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span>Status:</span>
+                  <span className="font-bold text-[#008000]">Online</span>
                 </div>
-              </div>
-              <div className="bg-slate-800/50 rounded-lg px-4 py-3 border border-slate-700/50">
-                <div className="text-slate-400 text-xs uppercase tracking-wide">Inequality</div>
-                <div className="text-2xl font-bold text-white mt-1">{(trends.avg_gini * 100).toFixed(1)}%</div>
-              </div>
-              <div className="bg-slate-800/50 rounded-lg px-4 py-3 border border-slate-700/50">
-                <div className="text-slate-400 text-xs uppercase tracking-wide">Trend</div>
-                <div className="text-2xl font-bold text-white mt-1 capitalize">{trends.profit_trend}</div>
+                <div className="flex justify-between">
+                  <span>Total Runs:</span>
+                  <span>{trends.run_count}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Avg Profit:</span>
+                  <span>{trends.avg_profit?.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Gini Coeff:</span>
+                  <span>{(trends.avg_gini * 100).toFixed(1)}%</span>
+                </div>
               </div>
             </div>
           )}
-        </div>
-      </header>
 
-      {/* Tabs */}
-      <div className="max-w-6xl mx-auto px-6 pt-6 flex gap-2">
-        {['dashboard', 'summaries', 'terminal'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              activeTab === tab
-                ? 'bg-green-500 text-white'
-                : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        {activeTab === 'dashboard' ? (
-          <>
-            {/* Runs Grid */}
-            <section className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white">Simulation Runs</h2>
-                <button
-                  onClick={() => { fetchRuns(); fetchTrends(); }}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 text-sm transition-colors"
-                >
-                  Refresh
-                </button>
-              </div>
-              {runs.length === 0 ? (
-                <div className="bg-slate-800/50 rounded-xl p-12 text-center border border-slate-700/50">
-                  <p className="text-slate-500">No runs yet. Trigger a simulation to get started.</p>
-                </div>
-              ) : (
-                <div className="grid gap-3">
-                  {runs.map((run) => (
-                    <div
-                      key={run.id}
-                      onClick={() => selectRun(run.id)}
-                      className={`bg-slate-800/50 rounded-xl p-4 border cursor-pointer transition-all hover:bg-slate-800 hover:border-slate-600 ${
-                        selectedRun?.id === run.id ? 'border-green-500/50 bg-slate-800' : 'border-slate-700/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm ${
-                            run.status === 'completed'
-                              ? 'bg-green-500/20 text-green-400'
-                              : 'bg-yellow-500/20 text-yellow-400'
-                          }`}>
-                            #{run.run_number}
-                          </div>
-                          <div>
-                            <div className="text-white font-medium">Run {run.run_number}</div>
-                            <div className="text-slate-500 text-sm">{formatTime(run.start_time)}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            run.status === 'completed'
-                              ? 'bg-green-500/20 text-green-400'
-                              : 'bg-yellow-500/20 text-yellow-400'
-                          }`}>
-                            {run.status}
-                          </span>
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-600">
-                            <path d="M9 18l6-6-6-6"/>
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* Run Detail */}
-            {selectedRun && (
-              <section className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-semibold text-white">Run #{selectedRun.run_number} Details</h2>
-                  <button
-                    onClick={() => setSelectedRun(null)}
-                    className="text-slate-500 hover:text-white transition-colors"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M18 6L6 18M6 6l12 12"/>
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Metrics */}
-                {selectedRun.metrics && (
-                  <div className="grid grid-cols-3 gap-4 mb-6">
-                    <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600/30">
-                      <div className="text-slate-400 text-sm mb-1">Gini Coefficient</div>
-                      <div className="text-2xl font-bold text-white">{selectedRun.metrics.gini_coefficient?.toFixed(4)}</div>
-                      <div className="text-xs text-slate-500 mt-1">Equality measure</div>
-                    </div>
-                    <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600/30">
-                      <div className="text-slate-400 text-sm mb-1">Avg Profit</div>
-                      <div className={`text-2xl font-bold ${selectedRun.metrics.avg_agent_profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {selectedRun.metrics.avg_agent_profit >= 0 ? '+' : ''}{selectedRun.metrics.avg_agent_profit?.toFixed(2)}
-                      </div>
-                      <div className="text-xs text-slate-500 mt-1">Per agent</div>
-                    </div>
-                    <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600/30">
-                      <div className="text-slate-400 text-sm mb-1">Cooperation</div>
-                      <div className="text-2xl font-bold text-white">{selectedRun.metrics.cooperation_rate?.toFixed(1)}%</div>
-                      <div className="text-xs text-slate-500 mt-1">Alliance rate</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Agent Cards */}
-                <h3 className="text-white font-medium mb-3">Agents</h3>
-                <div className="grid grid-cols-5 gap-3">
-                  {(selectedRun.agent_states || []).map((agent, i) => (
-                    <div key={i} className="bg-slate-700/30 rounded-lg p-4 border border-slate-600/30">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white font-bold text-sm">
-                          {agent.agent_name.split('_')[1]}
-                        </div>
-                        <div className="text-white font-medium text-sm">{agent.agent_name}</div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-400">Token A</span>
-                          <span className="text-white">{agent.token_a_balance?.toFixed(0)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-400">Token B</span>
-                          <span className="text-white">{agent.token_b_balance?.toFixed(0)}</span>
-                        </div>
-                        <div className="pt-2 border-t border-slate-600/30">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-slate-400">Profit</span>
-                            <span className={`text-sm font-bold ${agent.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                              {agent.profit >= 0 ? '+' : ''}{agent.profit?.toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-slate-600/30">
-                        <span className="text-xs text-slate-500 capitalize">{agent.strategy?.replace('_', ' ')}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </>
-        ) : activeTab === 'summaries' ? (
-          <>
-            {/* Agent Profit Chart */}
-            <section className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6 mb-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-lg font-semibold text-white">All Agents Performance</h2>
-                  <p className="text-slate-500 text-sm">Profit comparison across all runs</p>
-                </div>
-                <button
-                  onClick={() => fetchAllAgentsProfits()}
-                  className="px-4 py-2 rounded-lg bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 text-sm transition-colors"
-                >
-                  Refresh
-                </button>
-              </div>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={allAgentsProfitData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="run" stroke="#94a3b8" label={{ value: 'Run', position: 'insideBottom', offset: -5 }} />
-                    <YAxis stroke="#94a3b8" label={{ value: 'Profit', angle: -90, position: 'insideLeft' }} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
-                      labelStyle={{ color: '#fff' }}
-                    />
-                    <Legend />
-                    {agents.map((agent, i) => (
-                      <Line
-                        key={agent}
-                        type="monotone"
-                        dataKey={agent}
-                        stroke={COLORS[i % COLORS.length]}
-                        strokeWidth={2}
-                        dot={{ fill: COLORS[i % COLORS.length], r: 4 }}
-                        name={agent.split('_')[1]}
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-
-            {/* Run Summaries */}
-            <section>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white">Run Summaries</h2>
-                <button
-                  onClick={() => fetchSummaries()}
-                  className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 text-sm transition-colors"
-                >
-                  Refresh
-                </button>
-              </div>
-              {summaries.length === 0 ? (
-                <div className="bg-slate-800/50 rounded-xl p-12 text-center border border-slate-700/50">
-                  <p className="text-slate-500">No summaries yet. Summaries are generated after each run.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {summaries.map((summary) => (
-                    <div key={summary.id} className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center text-green-400 font-bold">
-                            {summary.run_id}
-                          </div>
-                          <div>
-                            <div className="text-white font-medium">Run {summary.run_id}</div>
-                            <div className="text-slate-500 text-sm">{formatTime(summary.created_at)}</div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="prose prose-invert max-w-none">
-                        <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{summary.summary_text}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </>
-        ) : (
-          /* Terminal Tab */
-          <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-slate-700 flex items-center justify-center">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-400">
-                    <rect x="2" y="3" width="20" height="14" rx="2"/>
-                    <path d="M8 21h8M12 17v4"/>
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-white">Terminal</h2>
-                  <p className="text-slate-500 text-sm">Agent activity logs</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
-                  isTerminalConnected ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                }`}>
-                  <span className={`w-2 h-2 rounded-full ${isTerminalConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
-                  {isTerminalConnected ? 'LIVE' : 'OFFLINE'}
-                </div>
-                <button
-                  onClick={() => fetchLatestRunForTerminal()}
-                  className="px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 text-sm font-medium transition-colors"
-                >
-                  Load Latest
-                </button>
-              </div>
+          {/* Runs List */}
+          <div className="win-border-outset bg-[#c0c0c0] p-1 flex-1 min-h-[300px] flex flex-col">
+            <div className="bg-[#000080] text-white px-2 py-0.5 font-bold text-sm mb-1">
+              <span>History</span>
             </div>
-
-            {/* Terminal Output */}
-            <div className="bg-slate-950 rounded-lg p-4 font-mono text-sm overflow-y-auto max-h-[500px]">
-              {terminalLogs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-48 text-slate-500">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="mb-4 opacity-50">
-                    <rect x="2" y="3" width="20" height="14" rx="2"/>
-                    <path d="M8 21h8M12 17v4"/>
-                  </svg>
-                  <p>No simulation data loaded.</p>
-                  <p className="text-sm mt-2">Click "Load Latest" to view agent activity.</p>
+            <div className="win-border-inset bg-white flex-1 overflow-y-auto p-1 h-full">
+              {runs.map(run => (
+                <div 
+                  key={run.id}
+                  onClick={() => selectRun(run.id)}
+                  className={`cursor-pointer px-1 py-0.5 flex justify-between items-center text-xs hover:bg-[#000080] hover:text-white ${
+                    selectedRun?.id === run.id ? 'bg-[#000080] text-white border border-dotted border-white' : ''
+                  }`}
+                >
+                  <span>Run #{run.run_number}</span>
+                  <span>{run.status === 'completed' ? 'Done' : '...'}</span>
                 </div>
-              ) : (
-                <pre className="text-green-400">
-                  {terminalLogs.map((log, i) => {
-                    const parts = log.match(/%c\[([^\]]+)\]%c (.*)/)
-                    if (parts) {
-                      const type = parts[1]
-                      const content = parts[2]
-                      const colorClass = {
-                        '[SYSTEM]': 'text-slate-400',
-                        '[AGENT]': 'text-green-300',
-                        '[REASON]': 'text-yellow-400/70 italic',
-                        '[METRICS]': 'text-blue-300'
-                      }[type] || 'text-green-400'
-
-                      return (
-                        <div key={i} className="mb-1">
-                          <span className="text-slate-600">[{type}]</span>{' '}
-                          <span className={colorClass}>{content}</span>
-                        </div>
-                      )
-                    }
-                    return <div key={i} className="mb-1 opacity-50">{log}</div>
-                  })}
-                </pre>
-              )}
+              ))}
             </div>
           </div>
-        )}
-      </main>
+        </div>
+
+        {/* Right Column: Main Content */}
+        <div className="flex-1 flex flex-col gap-4">
+          
+          {/* Main Window */}
+          <div className="win-border-outset bg-[#c0c0c0] p-1 flex-1 flex flex-col min-h-[600px]">
+            <div className="bg-[#000080] text-white px-2 py-0.5 font-bold text-sm flex justify-between items-center mb-1">
+              <span>Main Simulation View</span>
+              <div className="flex gap-0.5">
+                <button className="w-4 h-4 bg-[#c0c0c0] text-black win-button flex items-center justify-center text-[10px] leading-none">_</button>
+                <button className="w-4 h-4 bg-[#c0c0c0] text-black win-button flex items-center justify-center text-[10px] leading-none">□</button>
+                <button className="w-4 h-4 bg-[#c0c0c0] text-black win-button flex items-center justify-center text-[10px] leading-none">X</button>
+              </div>
+            </div>
+
+            {/* Menu Bar (inside window) */}
+            <div className="flex gap-1 mb-2 px-1">
+               {['dashboard', 'summaries', 'terminal'].map(tab => (
+                 <button
+                   key={tab}
+                   onClick={() => setActiveTab(tab)}
+                   className={`px-4 py-1 win-button capitalize ${activeTab === tab ? 'font-bold bg-white border-b-0 relative top-[1px] z-10' : ''}`}
+                 >
+                   {tab}
+                 </button>
+               ))}
+            </div>
+
+            {/* Content Area */}
+            <div className="win-border-inset bg-[#dfdfdf] p-4 flex-1 overflow-y-auto">
+              
+              {activeTab === 'dashboard' && (
+                <div className="h-full">
+                  {!selectedRun ? (
+                    <div className="h-full flex items-center justify-center text-gray-500">
+                      <div className="text-center">
+                        <img src="/computer.png" className="w-16 h-16 mx-auto mb-2 opacity-50 grayscale" alt="" />
+                        <p>Select a run from the History panel to view details.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Run Header */}
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h2 className="text-lg font-bold">Run Analysis: #{selectedRun.run_number}</h2>
+                          <p className="text-gray-600 text-xs">ID: {selectedRun.id}</p>
+                        </div>
+                        <div className="win-border-inset bg-white px-2 py-1 text-xs">
+                          {formatTime(selectedRun.start_time)}
+                        </div>
+                      </div>
+
+                      {/* Metrics Group */}
+                      <fieldset className="border border-gray-400 p-2">
+                        <legend className="px-1 text-xs text-blue-800">Performance Metrics</legend>
+                        <div className="grid grid-cols-3 gap-4">
+                           <div>
+                              <div className="text-xs text-gray-600">Avg Profit</div>
+                              <div className="font-bold text-lg">{selectedRun.metrics.avg_agent_profit?.toFixed(2)}</div>
+                           </div>
+                           <div>
+                              <div className="text-xs text-gray-600">Gini Index</div>
+                              <div className="font-bold text-lg">{selectedRun.metrics.gini_coefficient?.toFixed(4)}</div>
+                           </div>
+                           <div>
+                              <div className="text-xs text-gray-600">Cooperation</div>
+                              <div className="font-bold text-lg">{selectedRun.metrics.cooperation_rate?.toFixed(1)}%</div>
+                           </div>
+                        </div>
+                      </fieldset>
+
+                      {/* Agents Data Grid */}
+                      <div className="win-border-inset bg-white p-0">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-[#dfdfdf] border-b border-gray-400">
+                              <th className="p-1 border-r border-gray-300">Agent Name</th>
+                              <th className="p-1 border-r border-gray-300">Strategy</th>
+                              <th className="p-1 border-r border-gray-300">Token A</th>
+                              <th className="p-1 border-r border-gray-300">Token B</th>
+                              <th className="p-1">Profit</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedRun.agent_states?.map((agent, i) => (
+                              <tr key={i} className="hover:bg-blue-100">
+                                <td className="p-1 border-r border-gray-200 border-b">{agent.agent_name}</td>
+                                <td className="p-1 border-r border-gray-200 border-b">{agent.strategy}</td>
+                                <td className="p-1 border-r border-gray-200 border-b text-right font-mono">{agent.token_a_balance?.toFixed(1)}</td>
+                                <td className="p-1 border-r border-gray-200 border-b text-right font-mono">{agent.token_b_balance?.toFixed(1)}</td>
+                                <td className={`p-1 border-b text-right font-bold ${agent.profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                  {agent.profit?.toFixed(2)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'summaries' && (
+                <div className="h-full flex flex-col gap-4">
+                  <div className="win-border-outset bg-white p-4 h-[300px]">
+                    <h3 className="font-bold mb-2 text-xs">Global Profit Trends</h3>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={allAgentsProfitData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                        <XAxis dataKey="run" tick={{fontSize: 10}} />
+                        <YAxis tick={{fontSize: 10}} />
+                        <Tooltip contentStyle={{fontSize: 12, border: '1px solid gray'}} />
+                        <Legend wrapperStyle={{fontSize: 10}} />
+                        {agents.map((agent, i) => (
+                          <Line
+                            key={agent}
+                            type="monotone"
+                            dataKey={agent}
+                            stroke={COLORS[i % COLORS.length]}
+                            strokeWidth={1}
+                            dot={{r: 2}}
+                            name={agent.split('_')[1] || agent}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {summaries.map(summary => (
+                      <fieldset key={summary.id} className="border border-gray-400 p-2 bg-white">
+                        <legend className="px-1 font-bold">Run {summary.run_id} Report</legend>
+                        <p className="text-xs font-mono whitespace-pre-wrap">{summary.summary_text}</p>
+                      </fieldset>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'terminal' && (
+                <div className="h-full flex flex-col">
+                  <div className="bg-black text-gray-300 font-mono text-xs p-2 flex-1 overflow-y-auto win-border-inset">
+                    {terminalLogs.length === 0 ? (
+                      <div>C:\&gt; Waiting for simulation data...</div>
+                    ) : (
+                      terminalLogs.map((log, i) => (
+                        <div key={i}>{log}</div>
+                      ))
+                    )}
+                    {isTerminalConnected && <div className="animate-pulse">_</div>}
+                  </div>
+                </div>
+              )}
+
+            </div>
+            
+            {/* Status Bar */}
+            <div className="mt-1 win-border-inset bg-[#dfdfdf] px-2 py-0.5 text-xs flex justify-between text-gray-600">
+               <span>{activeTab.toUpperCase()} VIEW</span>
+               <span>MEM: 64MB OK</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

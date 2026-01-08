@@ -2,7 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --win-gray: #c0c0c0;
+  --win-gray-light: #dfdfdf;
+  --win-gray-dark: #808080;
+  --win-black: #000000;
+  --win-white: #ffffff;
+  --win-blue: #000080;
+  --win-teal: #008080;
+}
+
 body {
-  background-color: #f8fafc;
-  color: #1e293b;
+  background-color: var(--win-teal);
+  color: var(--win-black);
+  font-family: 'Tahoma', 'Verdana', sans-serif;
+  /* Pixelated font rendering for that crisp LCD look */
+  -webkit-font-smoothing: none;
+  font-size: 13px;
+}
+
+/* 3D Borders Utility Classes */
+.win-border-outset {
+  border-top: 2px solid var(--win-white);
+  border-left: 2px solid var(--win-white);
+  border-right: 2px solid var(--win-gray-dark);
+  border-bottom: 2px solid var(--win-gray-dark);
+  box-shadow: 1px 1px 0px var(--win-black);
+}
+
+.win-border-inset {
+  border-top: 2px solid var(--win-gray-dark);
+  border-left: 2px solid var(--win-gray-dark);
+  border-right: 2px solid var(--win-white);
+  border-bottom: 2px solid var(--win-white);
+  box-shadow: inset 1px 1px 0px var(--win-black);
+}
+
+.win-button {
+  background-color: var(--win-gray);
+  border-top: 1px solid var(--win-white);
+  border-left: 1px solid var(--win-white);
+  border-right: 1px solid var(--win-gray-dark);
+  border-bottom: 1px solid var(--win-gray-dark);
+  box-shadow: 1px 1px 0px var(--win-black);
+}
+
+.win-button:active {
+  border-top: 1px solid var(--win-gray-dark);
+  border-left: 1px solid var(--win-gray-dark);
+  border-right: 1px solid var(--win-white);
+  border-bottom: 1px solid var(--win-white);
+  box-shadow: none;
+  transform: translate(1px, 1px);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 16px;
+  background: var(--win-gray);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--win-gray);
+  border-top: 1px solid var(--win-white);
+  border-left: 1px solid var(--win-white);
+  border-right: 1px solid var(--win-gray-dark);
+  border-bottom: 1px solid var(--win-gray-dark);
+  box-shadow: 1px 1px 0px var(--win-black);
+}
+::-webkit-scrollbar-track {
+  background: #ffffff;
+  background-image: linear-gradient(45deg, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%, #ddd), 
+  linear-gradient(45deg, #ddd 25%, transparent 25%, transparent 75%, #ddd 75%, #ddd);
+  background-size: 4px 4px;
+  background-position: 0 0, 2px 2px;
 }
