@@ -305,6 +305,35 @@ def get_agent_profits(agent_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/agents/all-profits")
+def get_all_agents_profits():
+    """Get profit history for ALL agents across all runs - combined for charting."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        agents = supabase.get_all_agent_names()
+        all_profits = {}
+
+        for agent_name in agents:
+            profits = supabase.get_agent_profits_all_runs(agent_name)
+            for p in profits:
+                run_id = p["run_id"]
+                if run_id not in all_profits:
+                    all_profits[run_id] = {"run": run_id}
+                all_profits[run_id][agent_name] = p["profit"]
+
+        # Convert to array and sort by run
+        chart_data = sorted(all_profits.values(), key=lambda x: x["run"])
+
+        return {
+            "agents": agents,
+            "data": chart_data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def run_server():
     """Run the FastAPI server."""
     import uvicorn

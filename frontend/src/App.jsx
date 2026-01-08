@@ -23,14 +23,25 @@ function App() {
   const [agents, setAgents] = useState([])
   const [selectedAgent, setSelectedAgent] = useState(null)
   const [agentProfitData, setAgentProfitData] = useState([])
+  const [allAgentsProfitData, setAllAgentsProfitData] = useState([])
+  const terminalRef = useRef(null)
 
   useEffect(() => {
     fetchRuns()
     fetchTrends()
-    fetchLatestRunForTerminal()
     fetchSummaries()
     fetchAgents()
-  }, [])
+    fetchAllAgentsProfits()
+
+    // Auto-poll for terminal data when on terminal tab
+    const terminalInterval = setInterval(() => {
+      if (activeTab === 'terminal') {
+        fetchLatestRunForTerminal()
+      }
+    }, 5000) // Poll every 5 seconds
+
+    return () => clearInterval(terminalInterval)
+  }, [activeTab])
 
   const fetchRuns = async () => {
     try {
@@ -80,6 +91,19 @@ function App() {
       }
     } catch (e) {
       console.error('Failed to fetch agents:', e)
+    }
+  }
+
+  const fetchAllAgentsProfits = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/agents/all-profits`)
+      if (res.ok) {
+        const data = await res.json()
+        setAllAgentsProfitData(data.data || [])
+        setAgents(data.agents || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch all agents profits:', e)
     }
   }
 
@@ -402,44 +426,39 @@ function App() {
             <section className="bg-slate-800/50 rounded-xl border border-slate-700/50 p-6 mb-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-lg font-semibold text-white">Agent Performance</h2>
-                  <p className="text-slate-500 text-sm">Profit trajectory across runs</p>
+                  <h2 className="text-lg font-semibold text-white">All Agents Performance</h2>
+                  <p className="text-slate-500 text-sm">Profit comparison across all runs</p>
                 </div>
-                <select
-                  value={selectedAgent || ''}
-                  onChange={(e) => setSelectedAgent(e.target.value)}
-                  className="px-4 py-2 rounded-lg bg-slate-700 text-white border border-slate-600 text-sm"
+                <button
+                  onClick={() => fetchAllAgentsProfits()}
+                  className="px-4 py-2 rounded-lg bg-slate-700 text-slate-300 hover:text-white hover:bg-slate-600 text-sm transition-colors"
                 >
-                  {agents.map(agent => (
-                    <option key={agent} value={agent}>{agent}</option>
-                  ))}
-                </select>
+                  Refresh
+                </button>
               </div>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={agentProfitData}>
-                    <defs>
-                      <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
+                  <LineChart data={allAgentsProfitData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="name" stroke="#94a3b8" />
-                    <YAxis stroke="#94a3b8" />
+                    <XAxis dataKey="run" stroke="#94a3b8" label={{ value: 'Run', position: 'insideBottom', offset: -5 }} />
+                    <YAxis stroke="#94a3b8" label={{ value: 'Profit', angle: -90, position: 'insideLeft' }} />
                     <Tooltip
                       contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
                       labelStyle={{ color: '#fff' }}
                     />
-                    <Area
-                      type="monotone"
-                      dataKey="profit"
-                      stroke="#22c55e"
-                      strokeWidth={2}
-                      fill="url(#profitGradient)"
-                      name="Profit"
-                    />
-                  </AreaChart>
+                    <Legend />
+                    {agents.map((agent, i) => (
+                      <Line
+                        key={agent}
+                        type="monotone"
+                        dataKey={agent}
+                        stroke={COLORS[i % COLORS.length]}
+                        strokeWidth={2}
+                        dot={{ fill: COLORS[i % COLORS.length], r: 4 }}
+                        name={agent.split('_')[1]}
+                      />
+                    ))}
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             </section>
