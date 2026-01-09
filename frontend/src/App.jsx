@@ -205,89 +205,24 @@ function App() {
       </div>
 
       <div className="flex gap-4 flex-1 items-start">
-        
-        {/* Left Column: Sidebar Controls */}
-        <div className="w-64 flex flex-col gap-4">
-          
-          {/* Simulation Control Panel */}
-          <div className="win-border-outset bg-[#c0c0c0] p-1">
-            <div className="bg-[#000080] text-white px-2 py-0.5 font-bold text-sm mb-1">
-              Control Panel
-            </div>
-            <div className="p-3">
-              <div className="mb-3">
-                <label className="block mb-1">Agents:</label>
-                <select 
-                  className="w-full win-border-inset p-1 bg-white"
-                  value={simConfig.num_agents}
-                  onChange={(e) => setSimConfig({...simConfig, num_agents: parseInt(e.target.value)})}
-                >
-                  <option value="3">3 Agents</option>
-                  <option value="5">5 Agents</option>
-                  <option value="8">8 Agents</option>
-                </select>
-              </div>
-              <div className="mb-4">
-                <label className="block mb-1">Turns:</label>
-                <input 
-                  type="number" 
-                  className="w-full win-border-inset p-1 bg-white"
-                  value={simConfig.turns_per_run}
-                  onChange={(e) => setSimConfig({...simConfig, turns_per_run: parseInt(e.target.value)})}
-                />
-              </div>
-              <button 
-                onClick={startSimulation}
-                disabled={isRunning}
-                className="w-full win-button py-1 font-bold flex items-center justify-center gap-2"
-              >
-                {isRunning ? 'Running...' : 'Start Simulation'}
-              </button>
-            </div>
-          </div>
 
-          {/* System Status */}
-          {trends && (
-            <div className="win-border-outset bg-[#c0c0c0] p-1">
-              <div className="bg-[#808080] text-white px-2 py-0.5 font-bold text-sm mb-1">
-                <span>System Status</span>
-              </div>
-              <div className="p-2 space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span>Status:</span>
-                  <span className="font-bold text-[#008000]">Online</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Total Runs:</span>
-                  <span>{trends.run_count}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Avg Profit:</span>
-                  <span>{trends.avg_profit?.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Gini Coeff:</span>
-                  <span>{(trends.avg_gini * 100).toFixed(1)}%</span>
-                </div>
-              </div>
-            </div>
-          )}
-
+        {/* Left Column: History */}
+        <div className="w-48 flex flex-col gap-4">
           {/* Runs List */}
-          <div className="win-border-outset bg-[#c0c0c0] p-1 flex-1 min-h-[300px] flex flex-col">
+          <div className="win-border-outset bg-[#c0c0c0] p-1 flex-1 min-h-[500px] flex flex-col">
             <div className="bg-[#000080] text-white px-2 py-0.5 font-bold text-sm mb-1">
-              <span>History</span>
+              History
             </div>
             <div className="win-border-inset bg-white flex-1 overflow-y-auto p-1 h-full">
               {runs.map(run => (
-                <div 
+                <div
                   key={run.id}
                   onClick={() => selectRun(run.id)}
                   className={`cursor-pointer px-1 py-0.5 flex justify-between items-center text-xs hover:bg-[#000080] hover:text-white ${
                     selectedRun?.id === run.id ? 'bg-[#000080] text-white border border-dotted border-white' : ''
                   }`}
                 >
-                  <span>Run #{run.run_number}</span>
+                  <span>#{run.run_number}</span>
                   <span>{run.status === 'completed' ? 'Done' : '...'}</span>
                 </div>
               ))}
@@ -306,7 +241,7 @@ function App() {
 
             {/* Menu Bar (inside window) */}
             <div className="flex gap-1 mb-2 px-1">
-               {['dashboard', 'summaries', 'terminal'].map(tab => (
+               {['dashboard', 'summaries'].map(tab => (
                  <button
                    key={tab}
                    onClick={() => setActiveTab(tab)}
@@ -446,21 +381,6 @@ function App() {
                         </fieldset>
                       )
                     })}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'terminal' && (
-                <div className="h-full flex flex-col">
-                  <div className="bg-black text-gray-300 font-mono text-xs p-2 flex-1 overflow-y-auto win-border-inset">
-                    {terminalLogs.length === 0 ? (
-                      <div>C:\&gt; Waiting for simulation data...</div>
-                    ) : (
-                      terminalLogs.map((log, i) => (
-                        <div key={i}>{log}</div>
-                      ))
-                    )}
-                    {isTerminalConnected && <div className="animate-pulse">_</div>}
                   </div>
                 </div>
               )}
