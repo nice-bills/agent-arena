@@ -14,7 +14,7 @@ const COLORS = ['#000080', '#008000', '#800000', '#808000', '#800080']
 function App() {
   const [loading, setLoading] = useState(true)
   const [runs, setRuns] = useState([])
-  const [selectedRun, setSelectedRun] = useState(null)
+  const [expandedRun, setExpandedRun] = useState(null)
   const [trends, setTrends] = useState(null)
   const [activeTab, setActiveTab] = useState('dashboard')
   const [summaries, setSummaries] = useState([])
@@ -90,9 +90,13 @@ function App() {
     }
   }
 
-  const selectRun = async (runId) => {
+  const toggleRun = async (runId) => {
+    if (expandedRun === runId) {
+      setExpandedRun(null)
+      return
+    }
     if (runDetails[runId]) {
-      setSelectedRun(runDetails[runId])
+      setExpandedRun(runId)
       return
     }
     try {
@@ -100,12 +104,14 @@ function App() {
       if (res.ok) {
         const data = await res.json()
         setRunDetails(prev => ({ ...prev, [runId]: data }))
-        setSelectedRun(data)
+        setExpandedRun(runId)
       }
     } catch (e) {
       console.error('Failed to fetch run details:', e)
     }
   }
+
+  const getRunDetails = (runId) => runDetails[runId] || null
 
   const formatTime = (isoString) => {
     const date = new Date(isoString)
@@ -115,8 +121,10 @@ function App() {
   }
 
   const getFilteredSummaries = () => {
-    if (!selectedRun) return summaries
-    return summaries.filter(s => s.run_id === selectedRun.run_number)
+    if (!expandedRun) return summaries
+    const run = runs.find(r => r.id === expandedRun)
+    if (!run) return summaries
+    return summaries.filter(s => s.run_id === run.run_number)
   }
 
   if (loading) {
@@ -166,9 +174,9 @@ function App() {
               {runs.map(run => (
                 <div
                   key={run.id}
-                  onClick={() => selectRun(run.id)}
+                  onClick={() => toggleRun(run.id)}
                   className={`cursor-pointer px-1 py-0.5 flex justify-between items-center text-xs hover:bg-[#000080] hover:text-white ${
-                    selectedRun?.id === run.id ? 'bg-[#000080] text-white border border-dotted border-white' : ''
+                    expandedRun === run.id ? 'bg-[#000080] text-white border border-dotted border-white' : ''
                   }`}
                 >
                   <span>#{run.run_number}</span>
@@ -193,12 +201,6 @@ function App() {
                    key={tab}
                    onClick={() => {
                      setActiveTab(tab)
-                     // Restore scroll position for summaries
-                     if (tab === 'summaries' && summariesRef.current) {
-                       setTimeout(() => {
-                         summariesRef.current.scrollTop = summariesRef.current.scrollTop
-                       }, 100)
-                     }
                    }}
                    className={`px-4 py-1 win-button capitalize ${activeTab === tab ? 'font-bold bg-white border-b-0 relative top-[1px] z-10' : ''}`}
                  >
@@ -258,59 +260,98 @@ function App() {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Run Details or Empty State */}
-                  {!selectedRun ? (
-                    <div className="win-border-inset bg-white p-8 text-center text-gray-500">
-                      <p>Select a run from History to view details</p>
+                  {/* Runs List */}
+                  <div className="win-border-outset bg-[#c0c0c0] p-1">
+                    <div className="bg-[#808080] text-white px-2 py-0.5 font-bold text-xs mb-1">
+                      Recent Runs
                     </div>
-                  ) : (
-                    <div className="win-border-outset bg-[#c0c0c0] p-1">
-                      <div className="bg-[#808080] text-white px-2 py-0.5 font-bold text-xs mb-1">
-                        Run #{selectedRun.run_number} Details
-                      </div>
-                      <div className="win-border-inset bg-white p-0">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead>
-                            <tr className="bg-[#dfdfdf] border-b border-gray-400">
-                              <th className="p-1 border-r border-gray-300">Agent</th>
-                              <th className="p-1 border-r border-gray-300">Strategy</th>
-                              <th className="p-1 border-r border-gray-300 text-right">Token A</th>
-                              <th className="p-1 border-r border-gray-300 text-right">Token B</th>
-                              <th className="p-1 text-right">Profit</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedRun.agent_states?.map((agent, i) => (
-                              <tr key={i} className="hover:bg-blue-100">
-                                <td className="p-1 border-r border-gray-200 border-b font-bold">{agent.agent_name}</td>
-                                <td className="p-1 border-r border-gray-200 border-b">{agent.strategy}</td>
-                                <td className="p-1 border-r border-gray-200 border-b text-right font-mono">{agent.token_a_balance?.toFixed(1)}</td>
-                                <td className="p-1 border-r border-gray-200 border-b text-right font-mono">{agent.token_b_balance?.toFixed(1)}</td>
-                                <td className={`p-1 border-b text-right font-bold ${agent.profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                                  {agent.profit >= 0 ? '+' : ''}{agent.profit?.toFixed(2)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                    <div className="win-border-inset bg-white p-0">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-[#dfdfdf] border-b border-gray-400">
+                            <th className="p-1 border-r border-gray-300 w-12">#</th>
+                            <th className="p-1 border-r border-gray-300">Time</th>
+                            <th className="p-1 border-r border-gray-300 text-right">Avg Profit</th>
+                            <th className="p-1 border-r border-gray-300 text-right">Gini</th>
+                            <th className="p-1 border-r border-gray-300 text-right">Coop</th>
+                            <th className="p-1 text-center w-12">+</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {runs.slice(0, 10).map((run) => {
+                            const details = getRunDetails(run.id)
+                            const isExpanded = expandedRun === run.id
+                            return (
+                              <>
+                                <tr key={run.id} className="hover:bg-blue-100 cursor-pointer" onClick={() => toggleRun(run.id)}>
+                                  <td className="p-1 border-r border-gray-200 border-b font-bold">{run.run_number}</td>
+                                  <td className="p-1 border-r border-gray-200 border-b">{formatTime(run.start_time)}</td>
+                                  <td className={`p-1 border-r border-gray-200 border-b text-right font-bold ${(details?.metrics?.avg_agent_profit || 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                    {(details?.metrics?.avg_agent_profit || 0) >= 0 ? '+' : ''}{(details?.metrics?.avg_agent_profit || 0).toFixed(2)}
+                                  </td>
+                                  <td className="p-1 border-r border-gray-200 border-b text-right">{(details?.metrics?.gini_coefficient || 0).toFixed(3)}</td>
+                                  <td className="p-1 border-r border-gray-200 border-b text-right">{(details?.metrics?.cooperation_rate || 0).toFixed(1)}%</td>
+                                  <td className="p-1 border-b text-center">{isExpanded ? '-' : '+'}</td>
+                                </tr>
+                                {isExpanded && details && (
+                                  <tr>
+                                    <td colSpan={6} className="p-0">
+                                      <div className="win-border-inset bg-[#f5f5f5] m-1 p-3">
+                                        <div className="text-xs font-bold mb-2">Run #{run.run_number} Details</div>
+                                        <table className="w-full text-left border-collapse text-xs">
+                                          <thead>
+                                            <tr className="bg-[#dfdfdf] border-b border-gray-400">
+                                              <th className="p-1 border-r border-gray-300">Agent</th>
+                                              <th className="p-1 border-r border-gray-300">Strategy</th>
+                                              <th className="p-1 border-r border-gray-300 text-right">Token A</th>
+                                              <th className="p-1 border-r border-gray-300 text-right">Token B</th>
+                                              <th className="p-1 text-right">Profit</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {details.agent_states?.map((agent, i) => (
+                                              <tr key={i} className="hover:bg-blue-50">
+                                                <td className="p-1 border-r border-gray-200 border-b font-bold">{agent.agent_name}</td>
+                                                <td className="p-1 border-r border-gray-200 border-b">{agent.strategy}</td>
+                                                <td className="p-1 border-r border-gray-200 border-b text-right font-mono">{agent.token_a_balance?.toFixed(1)}</td>
+                                                <td className="p-1 border-r border-gray-200 border-b text-right font-mono">{agent.token_b_balance?.toFixed(1)}</td>
+                                                <td className={`p-1 border-b text-right font-bold ${agent.profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                                  {agent.profit >= 0 ? '+' : ''}{agent.profit?.toFixed(2)}
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </>
+                            )
+                          })}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
               {activeTab === 'summaries' && (
-                <div ref={summariesRef} className="h-full flex flex-col gap-4">
+                <div className="h-full flex flex-col gap-4">
                   <div className="win-border-outset bg-[#c0c0c0] p-1 flex-shrink-0">
                     <div className="bg-[#808080] text-white px-2 py-0.5 font-bold text-xs mb-1">
                       Filtered by Selected Run
                     </div>
                     <p className="text-xs text-gray-600 px-2 pb-2">
-                      Showing {getFilteredSummaries().length} summary(s) for Run #{selectedRun?.run_number || 'None'}
+                      Showing {getFilteredSummaries().length} summary(s)
+                      {expandedRun && (() => {
+                        const run = runs.find(r => r.id === expandedRun)
+                        return run ? ` for Run #${run.run_number}` : ''
+                      })()}
                     </p>
                   </div>
 
-                  <div className="space-y-4 flex-1 overflow-y-auto">
+                  <div ref={summariesRef} className="space-y-4 flex-1 overflow-y-auto">
                     {getFilteredSummaries().length === 0 ? (
                       <div className="win-border-inset bg-white p-8 text-center text-gray-500">
                         <p>Select a run from History to view its summary</p>
