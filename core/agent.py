@@ -18,6 +18,12 @@ class Agent:
     trade_history: List[Dict] = field(default_factory=list)
     learning_summary: str = ""
     alliances: Dict[str, str] = field(default_factory=dict)
+    consecutive_inaction: int = 0  # Track boredom
+    total_boredom_penalty: float = 0  # Accumulated penalty
+
+    # Boredom penalty config
+    BOREDOM_THRESHOLD: int = 2  # Start penalizing after 2 inactions
+    BOREDOM_PENALTY_PER_TURN: float = 5.0  # Lose 5 tokens per turn of inaction
 
     def __post_init__(self):
         self.client = MiniMaxClient()
@@ -29,7 +35,9 @@ class Agent:
             "token_a": round(self.token_a, 2),
             "token_b": round(self.token_b, 2),
             "profit": round(self.calculate_profit(), 2),
-            "alliances": self.alliances
+            "alliances": self.alliances,
+            "consecutive_inaction": self.consecutive_inaction,
+            "boredom_penalty": round(self.total_boredom_penalty, 2)
         }
 
     def decide(self, observation: Dict, pool_state: Dict, other_agents: List["Agent"], turn: int) -> Tuple[Dict, str]:
@@ -61,6 +69,15 @@ Output ONLY valid JSON with your reasoning."""
         """Build the decision prompt."""
         other_states = [a.get_state() for a in other_agents if a.name != self.name]
 
+        # Boredom warning
+        boredom_warning = ""
+        if self.consecutive_inaction >= self.BOREDOM_THRESHOLD:
+            penalty = (self.consecutive_inaction - self.BOREDOM_THRESHOLD + 1) * self.BOREDOM_PENALTY_PER_TURN
+            boredom_warning = f"""
+!!! URGENT: You have been inactive for {self.consecutive_inaction} consecutive turns.
+You are losing {penalty:.1f} tokens per turn due to boredom penalty.
+ACT NOW to avoid further losses!"""
+
         prompt = f"""
 You are {self.name}, an AI agent in a DeFi market simulation.
 
@@ -68,6 +85,8 @@ You are {self.name}, an AI agent in a DeFi market simulation.
 Token A: {self.token_a:.2f}
 Token B: {self.token_b:.2f}
 Profit: {self.calculate_profit():.2f}
+Consecutive inaction: {self.consecutive_inaction}
+{boredom_warning}
 
 === MARKET STATE ===
 Pool reserves: A={pool_state.get('reserve_a', 0):.2f}, B={pool_state.get('reserve_b', 0):.2f}
@@ -80,10 +99,10 @@ Price (A/B): {pool_state.get('price_ab', 0):.4f}
 {self.learning_summary if self.learning_summary else "No previous runs yet."}
 
 === AVAILABLE ACTIONS ===
-1. "swap": Trade tokens (specify from, to, amount)
-2. "provide_liquidity": Add liquidity to pool (specify amounts)
-3. "propose_alliance": Suggest collaboration (specify agent name)
-4. "do_nothing": Wait for better opportunity
+1. "swap": Trade tokens (specify from, to, amount) - ACTIVE TRADING
+2. "provide_liquidity": Add liquidity to pool (specify amounts) - EARNS FEES
+3. "propose_alliance": Suggest collaboration (specify agent name) - CAN GIVE BONUS
+4. "do_nothing": Wait - NOT RECOMMENDED (causes boredom penalty!)
 
 Output JSON:
 {{
@@ -97,6 +116,28 @@ Output JSON:
     def calculate_profit(self) -> float:
         """Calculate profit from initial state."""
         return (self.token_a + self.token_b) - (INITIAL_TOKENS * 2)
+
+    def apply_boredom_penalty(self) -> float:
+        """
+        Apply boredom penalty for inaction.
+        Returns the penalty amount applied.
+        """
+        if self.consecutive_inaction >= self.BOREDOM_THRESHOLD:
+            # Calculate penalty based on how long they've been inactive
+            penalty_turns = self.consecutive_inaction - self.BOREDOM_THRESHOLD + 1
+            penalty = penalty_turns * self.BOREDOM_PENALTY_PER_TURN
+            self.token_a -= penalty
+            self.total_boredom_penalty += penalty
+            return penalty
+        return 0
+
+    def reset_inaction_counter(self):
+        """Reset inaction counter when taking active action."""
+        self.consecutive_inaction = 0
+
+    def increment_inaction_counter(self):
+        """Increment inaction counter for do_nothing."""
+        self.consecutive_inaction += 1
 
     def infer_strategy(self) -> str:
         """Infer the agent's strategy from recent actions."""

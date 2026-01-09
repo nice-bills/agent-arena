@@ -1,6 +1,7 @@
 """Main simulation engine for DeFi agent market."""
 
 import json
+import random
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 
@@ -21,11 +22,20 @@ class Simulation:
     turns_per_run: int = TURNS_PER_RUN
     supabase: Optional[SupabaseClient] = None
 
+    # Alliance bonus config
+    ALLIANCE_BONUS: float = 15.0  # Bonus for successful alliance
+
+    # Market maker config
+    ENABLE_MARKET_MAKER: bool = True
+    MARKET_MAKER_INTERVAL: int = 3  # Market maker acts every N turns
+    MARKET_MAKER_VOLATILITY: float = 0.15  # 15% price shock
+
     def __post_init__(self):
         self.agents: List[Agent] = []
         self.pool: Optional[Pool] = None
         self.current_run_id: Optional[int] = None
         self.current_run_number: int = 0
+        self.market_maker_trades: List[Dict] = []
 
         if self.supabase is None:
             try:
@@ -56,23 +66,53 @@ class Simulation:
         """Execute a complete simulation run."""
         self.initialize_run(run_number)
 
-        print(f"\nStarting run {self.current_run_number} with {self.turns_per_run} turns...")
+        print(f"\n=== Starting run {self.current_run_number} with {self.turns_per_run} turns ===")
+        if self.ENABLE_MARKET_MAKER:
+            print("Market Maker: ENABLED (creates volatility every 3 turns)")
+        print(f"Alliance Bonus: {self.ALLIANCE_BONUS} tokens for successful cooperation")
+        print(f"Boredom Penalty: Agents lose tokens after 2+ consecutive do_nothing actions")
+        print()
 
         for turn in range(self.turns_per_run):
             print(f"\n--- Turn {turn + 1}/{self.turns_per_run} ---")
 
+            # Market maker creates volatility every N turns
+            if self.ENABLE_MARKET_MAKER and (turn + 1) % self.MARKET_MAKER_INTERVAL == 0:
+                self._market_maker_action(turn)
+
+            # Random price shock event (15% chance each turn)
+            if random.random() < 0.15:
+                self._trigger_price_shock(turn)
+
             # Each agent makes a decision
             for agent in self.agents:
                 decision, thinking = self._agent_decide(agent, turn)
+                action_type = decision.get('action', 'unknown')
 
                 # Execute action
                 if decision:
                     success = agent.execute_action(decision, self.pool)
-                    print(f"  {agent.name}: {decision.get('action', 'unknown')} {'OK' if success else 'FAIL'}")
+
+                    # Track inaction
+                    if action_type == 'do_nothing':
+                        agent.increment_inaction_counter()
+                    else:
+                        agent.reset_inaction_counter()
+
+                    print(f"  {agent.name}: {action_type} {'OK' if success else 'FAIL'}")
 
                 # Save action to database
                 if self.supabase:
                     self._save_action(agent, turn, decision, thinking)
+
+            # Apply boredom penalties AFTER all agents act
+            for agent in self.agents:
+                penalty = agent.apply_boredom_penalty()
+                if penalty > 0:
+                    print(f"  {agent.name}: Boredom penalty -{penalty:.1f} tokens")
+
+            # Check for successful alliances and grant bonuses
+            self._process_alliances(turn)
 
             # Save state snapshots
             if self.supabase:
@@ -207,6 +247,90 @@ class Simulation:
     def _count_betrayals(self) -> int:
         """Count betrayal events (placeholder for future implementation)."""
         return 0
+
+    def _market_maker_action(self, turn: int):
+        """
+        Market maker creates artificial volatility by making large trades.
+        This encourages other agents to react and trade.
+        """
+        # Decide direction: buy A (pushes price up) or buy B (pushes price down)
+        direction = random.choice(['buy_a', 'buy_b'])
+        amount = self.pool.reserve_a * self.MARKET_MAKER_VOLATILITY
+
+        if direction == 'buy_a':
+            # Buy A with B - increases A reserve, decreases B reserve
+            output, fee = self.pool.swap('b', amount, 'MarketMaker')
+            print(f"  [MarketMaker]: Swapped {amount:.0f} B for {output:.1f} A (volatility trade)")
+        else:
+            # Buy B with A - increases B reserve, decreases A reserve
+            output, fee = self.pool.swap('a', amount, 'MarketMaker')
+            print(f"  [MarketMaker]: Swapped {amount:.0f} A for {output:.1f} B (volatility trade)")
+
+        self.market_maker_trades.append({
+            'turn': turn,
+            'direction': direction,
+            'amount': amount,
+            'pool_state': self.pool.get_state()
+        })
+
+    def _trigger_price_shock(self, turn: int):
+        """
+        Random external event that causes a price shock.
+        Creates trading opportunities for attentive agents.
+        """
+        # Random shock between -10% and +10%
+        shock_pct = random.uniform(-0.10, 0.10)
+        direction = "UP" if shock_pct > 0 else "DOWN"
+
+        # Apply shock by doing a large swap
+        amount = self.pool.reserve_a * abs(shock_pct)
+
+        if shock_pct > 0:
+            # Price goes up: buy A with B
+            output, _ = self.pool.swap('b', amount, 'PriceShock')
+            print(f"  [EVENT] Price shock {direction} (+{shock_pct*100:.1f}%): Swap {amount:.0f} B -> {output:.1f} A")
+        else:
+            # Price goes down: buy B with A
+            output, _ = self.pool.swap('a', amount, 'PriceShock')
+            print(f"  [EVENT] Price shock {direction} ({shock_pct*100:.1f}%): Swap {amount:.0f} A -> {output:.1f} B")
+
+    def _process_alliances(self, turn: int):
+        """
+        Process alliances and grant bonuses for mutual proposals.
+        When two agents propose alliance to each other, both get a bonus.
+        """
+        # Find mutual alliance pairs
+        for i, agent_a in enumerate(self.agents):
+            for agent_b in self.agents[i + 1:]:
+                # Check if both have proposed alliance to each other
+                if (agent_b.name in agent_a.alliances and
+                    agent_a.name in agent_b.alliances and
+                    agent_a.alliances.get(agent_b.name) == 'proposed' and
+                    agent_b.alliances.get(agent_a.name) == 'proposed'):
+
+                    # Successful alliance! Grant bonus to both
+                    bonus = self.ALLIANCE_BONUS
+
+                    # Give bonus in Token A
+                    agent_a.token_a += bonus
+                    agent_b.token_a += bonus
+
+                    # Mark alliances as successful
+                    agent_a.alliances[agent_b.name] = 'success'
+                    agent_b.alliances[agent_a.name] = 'success'
+
+                    print(f"  [ALLIANCE] {agent_a.name} + {agent_b.name}: BONUS +{bonus} tokens each!")
+
+                    if self.supabase:
+                        self.supabase.save_action(ActionData(
+                            run_id=self.current_run_id,
+                            turn=turn,
+                            agent_name=f"{agent_a.name}+{agent_b.name}",
+                            action_type="alliance_success",
+                            payload={"bonus": bonus, "partners": [agent_a.name, agent_b.name]},
+                            reasoning_trace=f"Alliance formed between {agent_a.name} and {agent_b.name}",
+                            thinking_trace=""
+                        ))
 
 
 def test_simulation():
