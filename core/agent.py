@@ -21,9 +21,9 @@ class Agent:
     consecutive_inaction: int = 0  # Track boredom
     total_boredom_penalty: float = 0  # Accumulated penalty
 
-    # Boredom penalty config
-    BOREDOM_THRESHOLD: int = 2  # Start penalizing after 2 inactions
-    BOREDOM_PENALTY_PER_TURN: float = 5.0  # Lose 5 tokens per turn of inaction
+    # Boredom penalty config - MORE AGGRESSIVE
+    BOREDOM_THRESHOLD: int = 1  # Start penalizing after 1 inaction (immediate!)
+    BOREDOM_PENALTY_PER_TURN: float = 10.0  # Lose 10 tokens per turn of inaction
 
     def __post_init__(self):
         self.client = MiniMaxClient()
