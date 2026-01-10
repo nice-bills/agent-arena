@@ -69,6 +69,12 @@ Output ONLY valid JSON with your reasoning."""
         """Build the decision prompt."""
         other_states = [a.get_state() for a in other_agents if a.name != self.name]
 
+        # Find allied agents
+        allied_names = [name for name, status in self.alliances.items() if status == 'success']
+        allied_info = ""
+        if allied_names:
+            allied_info = f"\nYour ALLIES: {', '.join(allied_names)} - Coordinate with them for BONUS REWARDS!"
+
         # Boredom warning
         boredom_warning = ""
         if self.consecutive_inaction >= self.BOREDOM_THRESHOLD:
@@ -86,11 +92,13 @@ Token A: {self.token_a:.2f}
 Token B: {self.token_b:.2f}
 Profit: {self.calculate_profit():.2f}
 Consecutive inaction: {self.consecutive_inaction}
+{allied_info}
 {boredom_warning}
 
 === MARKET STATE ===
 Pool reserves: A={pool_state.get('reserve_a', 0):.2f}, B={pool_state.get('reserve_b', 0):.2f}
 Price (A/B): {pool_state.get('price_ab', 0):.4f}
+Total liquidity: {pool_state.get('total_liquidity', 0):.2f}
 
 === OTHER AGENTS ===
 {json.dumps(other_states, indent=2)}
@@ -98,11 +106,17 @@ Price (A/B): {pool_state.get('price_ab', 0):.4f}
 === YOUR LEARNING ===
 {self.learning_summary if self.learning_summary else "No previous runs yet."}
 
+=== REWARDS FOR ACTIONS ===
+- SWAP: Active trading, you could profit from price movements
+- PROVIDE_LIQUIDITY: Earns fees from all swaps, +5 bonus tokens
+- PROPOSE_ALLIANCE: If they accept, you BOTH get +15 bonus tokens
+- COORDINATED TRADES: Trade with your allies for +3 bonus tokens!
+
 === AVAILABLE ACTIONS ===
 1. "swap": Trade tokens (specify from, to, amount) - ACTIVE TRADING
-2. "provide_liquidity": Add liquidity to pool (specify amounts) - EARNS FEES
+2. "provide_liquidity": Add liquidity to pool (specify amounts) - EARNS FEES + BONUS
 3. "propose_alliance": Suggest collaboration (specify agent name) - CAN GIVE BONUS
-4. "do_nothing": Wait - NOT RECOMMENDED (causes boredom penalty!)
+4. "do_nothing": Wait - CAUSES BOREDOM PENALTY!
 
 Output JSON:
 {{
