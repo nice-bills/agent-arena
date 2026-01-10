@@ -1,0 +1,32 @@
+name: Deploy to HF Space
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Push to HF Space
+        run: |
+          git push https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/nice-bill/agent-arena main:main
+
+      - name: Wait for HF to process
+        run: sleep 10
+
+      - name: Restart HF Space
+        run: |
+          curl -X POST "https://nice-bill-agent-arena.hf.space/api/restart" \
+            -H "Content-Type: application/json"
+
+      - name: Verify new version
+        run: |
+          sleep 5
+          curl -s "https://nice-bill-agent-arena.hf.space/api/version"
