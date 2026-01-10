@@ -334,6 +334,40 @@ def get_all_agents_profits():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/version")
+def get_version():
+    """Get server version and git info."""
+    import subprocess
+    try:
+        commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True)
+        branch = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True)
+        return {
+            "commit": commit.stdout.strip()[:8],
+            "branch": branch.stdout.strip(),
+            "status": "running"
+        }
+    except Exception:
+        return {"commit": "unknown", "branch": "unknown", "status": "running"}
+
+
+@app.post("/api/restart")
+def restart_server():
+    """
+    Signal the server to restart.
+    For HuggingFace Spaces, this works with their restart mechanism.
+    """
+    import os
+    import signal
+
+    # Set environment variable to signal restart
+    os.environ["RESTART_REQUESTED"] = "1"
+
+    # Get PID for graceful shutdown
+    pid = os.getpid()
+
+    return {"status": "restarting", "message": "Restart signal sent", "pid": pid}
+
+
 def run_server():
     """Run the FastAPI server."""
     import uvicorn
