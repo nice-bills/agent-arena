@@ -21,11 +21,18 @@ function App() {
   const [agents, setAgents] = useState([])
   const [allAgentsProfitData, setAllAgentsProfitData] = useState([])
   const [runDetails, setRunDetails] = useState({})
+  const [loadingRunId, setLoadingRunId] = useState(null)
   const summariesRef = useRef(null)
 
   useEffect(() => {
     loadAllData()
   }, [])
+
+  useEffect(() => {
+    if (activeTab === 'summaries' && summariesRef.current) {
+      summariesRef.current.scrollTop = 0
+    }
+  }, [expandedRun, activeTab])
 
   const loadAllData = async () => {
     setLoading(true)
@@ -99,6 +106,7 @@ function App() {
       setExpandedRun(runId)
       return
     }
+    setLoadingRunId(runId)
     try {
       const res = await fetch(`${API_BASE}/runs/${runId}`)
       if (res.ok) {
@@ -108,6 +116,8 @@ function App() {
       }
     } catch (e) {
       console.error('Failed to fetch run details:', e)
+    } finally {
+      setLoadingRunId(null)
     }
   }
 
@@ -163,10 +173,10 @@ function App() {
         </div>
       </div>
 
-      <div className="flex gap-4 flex-1 items-start">
+      <div className="flex flex-col md:flex-row gap-4 flex-1 items-start h-full md:h-[calc(100vh-60px)]">
         {/* Left Column: History */}
-        <div className="w-48 flex flex-col gap-4">
-          <div className="win-border-outset bg-[#c0c0c0] p-1 flex-1 min-h-[500px] flex flex-col">
+        <div className="w-full md:w-48 flex flex-col gap-4 h-[200px] md:h-full flex-shrink-0">
+          <div className="win-border-outset bg-[#c0c0c0] p-1 flex-1 flex flex-col">
             <div className="bg-[#000080] text-white px-2 py-0.5 font-bold text-sm mb-1">
               History
             </div>
@@ -180,7 +190,9 @@ function App() {
                   }`}
                 >
                   <span>#{run.run_number}</span>
-                  <span>{run.status === 'completed' ? 'Done' : '...'}</span>
+                  <span>
+                    {loadingRunId === run.id ? 'Loading...' : (run.status === 'completed' ? 'Done' : '...')}
+                  </span>
                 </div>
               ))}
             </div>
@@ -188,9 +200,9 @@ function App() {
         </div>
 
         {/* Right Column: Main Content */}
-        <div className="flex-1 flex flex-col gap-4">
-          <div className="win-border-outset bg-[#c0c0c0] p-1 flex-1 flex flex-col min-h-[600px]">
-            <div className="bg-[#000080] text-white px-2 py-0.5 font-bold text-sm mb-1">
+        <div className="flex-1 flex flex-col gap-4 h-full overflow-hidden">
+          <div className="win-border-outset bg-[#c0c0c0] p-1 flex-1 flex flex-col h-full overflow-hidden">
+            <div className="bg-[#000080] text-white px-2 py-0.5 font-bold text-sm mb-1 flex-shrink-0">
               Main Simulation View
             </div>
 
@@ -210,9 +222,9 @@ function App() {
             </div>
 
             {/* Content Area */}
-            <div className="win-border-inset bg-[#dfdfdf] p-4 flex-1 overflow-y-auto">
+            <div className="win-border-inset bg-[#dfdfdf] p-4 flex-1 overflow-hidden flex flex-col">
               {activeTab === 'dashboard' && (
-                <div className="space-y-4">
+                <div className="space-y-4 overflow-y-auto h-full pr-2">
                   {/* Stats Bar */}
                   <div className="grid grid-cols-4 gap-2">
                     <div className="win-border-inset bg-white p-2 text-center">
