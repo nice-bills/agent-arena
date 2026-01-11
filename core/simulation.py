@@ -23,12 +23,13 @@ class Simulation:
     supabase: Optional[SupabaseClient] = None
 
     # Alliance bonus config
-    ALLIANCE_BONUS: float = 15.0  # Bonus for successful alliance
+    ALLIANCE_BONUS: float = 8.0  # Bonus for successful alliance
 
     # Action bonuses
-    LIQUIDITY_BONUS: float = 5.0  # Bonus for providing liquidity
-    SWAP_BONUS: float = 2.0       # Bonus for active trading
-    COORDINATED_TRADE_BONUS: float = 3.0  # Bonus for trading with allies
+    LIQUIDITY_BONUS: float = 8.0  # Bonus for providing liquidity
+    SWAP_BONUS: float = 3.0       # Bonus for active trading
+    COORDINATED_TRADE_BONUS: float = 5.0  # Bonus for trading with allies
+    PROFIT_BONUS: float = 10.0    # Bonus for ending turn with positive profit
 
     # Market maker config
     ENABLE_MARKET_MAKER: bool = True
@@ -94,6 +95,9 @@ class Simulation:
                 decision, thinking = self._agent_decide(agent, turn)
                 action_type = decision.get('action', 'unknown')
 
+                # Save profit before action for profit detection
+                agent._last_profit = agent.calculate_profit()
+
                 # Execute action
                 if decision:
                     success = agent.execute_action(decision, self.pool)
@@ -122,6 +126,9 @@ class Simulation:
 
             # Check for successful alliances and grant bonuses
             self._process_alliances(turn)
+
+            # Grant profit bonus for agents with positive profit
+            self._grant_profit_bonuses(turn)
 
             # Save state snapshots
             if self.supabase:
@@ -345,9 +352,10 @@ class Simulation:
         """
         Grant bonuses for active trading behaviors.
 
-        - Provide liquidity: +5 tokens
-        - Swap: +2 tokens (active trading)
-        - Coordinated trade with ally: +3 bonus tokens
+        - Provide liquidity: +8 tokens
+        - Swap: +3 tokens (active trading)
+        - Coordinated trade with ally: +5 bonus tokens
+        - Profitable trade: +5 bonus tokens
         """
         bonus = 0
         bonus_reason = ""
@@ -361,13 +369,16 @@ class Simulation:
             bonus_reason = "active trading"
 
             # Check for coordinated trade with ally
-            payload = decision.get("payload", {})
-            # Coordinated trade is when both parties are allies
-            # We'll give a bonus if the swap is happening in a volatile market
-            # (after market maker or price shock)
             if self._is_coordinated_trade(agent, turn):
                 bonus += self.COORDINATED_TRADE_BONUS
                 bonus_reason = "coordinated trading with ally"
+
+            # Check if swap was profitable (compare pre/post profit)
+            if hasattr(agent, '_last_profit'):
+                current_profit = agent.calculate_profit()
+                if current_profit > agent._last_profit:
+                    bonus += 5.0
+                    bonus_reason = "profitable trade"
 
         if bonus > 0:
             agent.token_a += bonus
@@ -396,6 +407,28 @@ class Simulation:
         ) if hasattr(self, 'price_shocks') else False
 
         return market_maker_just_acted or price_shock_just_happened
+
+    def _grant_profit_bonuses(self, turn: int):
+        """
+        Grant bonus tokens to agents with positive profit at end of turn.
+        Encourages profit-seeking behavior.
+        """
+        for agent in self.agents:
+            profit = agent.calculate_profit()
+            if profit > 0:
+                agent.token_a += self.PROFIT_BONUS
+                print(f"  [PROFIT BONUS] {agent.name}: +{self.PROFIT_BONUS:.1f} tokens (profit: {profit:.2f})")
+
+                if self.supabase:
+                    self.supabase.save_action(ActionData(
+                        run_id=self.current_run_id,
+                        turn=turn,
+                        agent_name=agent.name,
+                        action_type="profit_bonus",
+                        payload={"bonus": self.PROFIT_BONUS, "profit": profit},
+                        reasoning_trace=f"Bonus for positive profit",
+                        thinking_trace=""
+                    ))
 
 
 def test_simulation():
