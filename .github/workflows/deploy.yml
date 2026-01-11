@@ -17,7 +17,7 @@ jobs:
       - name: Push to HF Space
         run: |
           pip install -U huggingface_hub
-          huggingface-cli upload nice-bill/agent-arena . --repo-type space --token=${{ secrets.HF_TOKEN }} --commit-message="deploy from github"
+          python -c "from huggingface_hub import HfApi; api = HfApi(token='${{ secrets.HF_TOKEN }}'); api.upload_folder('.', repo_id='nice-bill/agent-arena', repo_type='space', commit_message='deploy from github')"
 
       - name: Wait for HF to process
         run: sleep 10
