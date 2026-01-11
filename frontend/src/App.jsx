@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell
 } from 'recharts'
 
 const getApiBase = () => {
@@ -22,6 +23,8 @@ function App() {
   const [allAgentsProfitData, setAllAgentsProfitData] = useState([])
   const [runDetails, setRunDetails] = useState({})
   const [loadingRunId, setLoadingRunId] = useState(null)
+  const [actionDistribution, setActionDistribution] = useState([])
+  const [chaosEvents, setChaosEvents] = useState([])
   const summariesRef = useRef(null)
 
   useEffect(() => {
@@ -41,7 +44,9 @@ function App() {
         fetchRuns(),
         fetchTrends(),
         fetchSummaries(),
-        fetchAllAgentsProfits()
+        fetchAllAgentsProfits(),
+        fetchActionDistribution(),
+        fetchChaosEvents()
       ])
     } finally {
       setLoading(false)
@@ -94,6 +99,30 @@ function App() {
       }
     } catch (e) {
       console.error('Failed to fetch all agents profits:', e)
+    }
+  }
+
+  const fetchActionDistribution = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/analysis/actions`)
+      if (res.ok) {
+        const data = await res.json()
+        setActionDistribution(data.data || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch action distribution:', e)
+    }
+  }
+
+  const fetchChaosEvents = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/analysis/chaos-events`)
+      if (res.ok) {
+        const data = await res.json()
+        setChaosEvents(data.data || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch chaos events:', e)
     }
   }
 
@@ -244,6 +273,55 @@ function App() {
                     <div className="win-border-inset bg-white p-2 text-center">
                       <div className="text-xs text-gray-600">Cooperation</div>
                       <div className="font-bold text-lg">{trends?.cooperation_rate?.toFixed(1) || '0.0'}%</div>
+                    </div>
+                  </div>
+
+                  {/* Action Distribution & Chaos Events Row */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Action Distribution Pie Chart */}
+                    <div className="win-border-outset bg-white p-3 h-[200px]">
+                      <h3 className="font-bold mb-2 text-xs">Action Distribution</h3>
+                      <ResponsiveContainer width="100%" height="85%">
+                        <PieChart>
+                          <Pie
+                            data={actionDistribution}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={35}
+                            outerRadius={60}
+                            paddingAngle={2}
+                            dataKey="count"
+                            nameKey="action_type"
+                            label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            labelLine={false}
+                          >
+                            {actionDistribution.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={['#008000', '#000080', '#800000', '#808000', '#800080'][index % 5]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Chaos Events Log */}
+                    <div className="win-border-outset bg-white p-3 h-[200px] flex flex-col">
+                      <h3 className="font-bold mb-2 text-xs">Chaos Events</h3>
+                      <div className="win-border-inset bg-[#f5f5f5] flex-1 overflow-y-auto p-2 text-xs font-mono">
+                        {chaosEvents.length === 0 ? (
+                          <div className="text-gray-400 text-center py-4">No chaos events yet</div>
+                        ) : (
+                          chaosEvents.slice(0, 20).map((event, i) => (
+                            <div key={i} className="mb-1 border-b border-gray-200 pb-1">
+                              <span className="text-gray-500">#{event.run_id}-{event.turn}</span>
+                              <span className={`ml-2 font-bold ${event.action_type.includes('MarketMaker') ? 'text-blue-700' : event.action_type.includes('Chaos') ? 'text-red-700' : 'text-purple-700'}`}>
+                                [{event.action_type}]
+                              </span>
+                              <span className="ml-1">{event.reasoning || event.payload?.amount || ''}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   </div>
 
