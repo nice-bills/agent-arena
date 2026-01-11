@@ -91,12 +91,20 @@ def health_check():
 @app.post("/api/runs")
 def create_run(request: RunRequest):
     """Start a new simulation run."""
+    import traceback
+
+    sim = None
+    run_id = None
+
     try:
         sim = Simulation(
             num_agents=request.num_agents,
             turns_per_run=request.turns_per_run,
             supabase=supabase
         )
+
+        # Store run_id for error recovery
+        run_id = sim.current_run_id
 
         metrics = sim.run()
 
@@ -118,7 +126,19 @@ def create_run(request: RunRequest):
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = str(e)
+        print(f"[ERROR] Run failed: {error_msg}")
+        traceback.print_exc()
+
+        # Try to mark run as failed if we have a run_id
+        if run_id and supabase:
+            try:
+                supabase.update_run_status(run_id, "failed")
+                print(f"[ERROR] Marked run {run_id} as failed")
+            except:
+                pass
+
+        raise HTTPException(status_code=500, detail=f"Run failed: {error_msg}")
 
 
 @app.get("/api/runs")

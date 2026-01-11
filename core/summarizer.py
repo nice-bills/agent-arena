@@ -14,8 +14,13 @@ class Summarizer:
 
     def generate_summary(self, run_id: int) -> str:
         """Generate a detailed summary for a run."""
+        print(f"[Summarizer] Processing run_id={run_id}")
+
         # Get run data
         run_detail = self.supabase.get_run_detail(run_id)
+        if not run_detail:
+            raise ValueError(f"Run {run_id} not found")
+
         metrics = run_detail.get("metrics", {})
         actions = run_detail.get("actions", [])
         agent_states = run_detail.get("agent_states", [])
@@ -25,6 +30,8 @@ class Summarizer:
         runs = self.supabase.get_all_runs()
         run_info = next((r for r in runs if r["id"] == run_id), {})
         run_number = run_info.get("run_number", run_id)
+
+        print(f"[Summarizer] Summarizing Run #{run_number} with {len(actions)} actions, {len(agent_states)} agent states")
 
         # Analyze data
         agent_performance = self._analyze_agents(agent_states)
