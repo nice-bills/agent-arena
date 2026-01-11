@@ -158,11 +158,14 @@ class Simulation:
 
             # Generate and save run summary
             try:
+                print(f"Generating summary for run {self.current_run_number}...")
                 summarizer = Summarizer(supabase=self.supabase)
                 summary = summarizer.summarize_and_save(self.current_run_id)
-                print(f"Generated summary for run {self.current_run_id}")
+                print(f"Generated summary for run {self.current_run_number}")
             except Exception as e:
                 print(f"Warning: Failed to generate summary - {e}")
+                import traceback
+                traceback.print_exc()
 
         # Update agent learning
         for agent in self.agents:
