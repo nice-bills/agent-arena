@@ -186,6 +186,63 @@ def get_trends():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/analysis/actions")
+def get_action_distribution():
+    """Get action distribution across all runs."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        runs = supabase.get_all_runs()
+        completed_runs = [r for r in runs if r.get("status") == "completed"]
+
+        action_counts = {}
+        for run in completed_runs:
+            actions = supabase.get_all_actions(run["id"])
+            for action in actions:
+                action_type = action.get("action_type", "unknown")
+                # Filter out bonus actions for cleaner chart
+                if not action_type.endswith("_bonus") and action_type != "alliance_success":
+                    action_counts[action_type] = action_counts.get(action_type, 0) + 1
+
+        data = [{"action_type": k, "count": v} for k, v in action_counts.items()]
+        data.sort(key=lambda x: x["count"], reverse=True)
+        return {"data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analysis/chaos-events")
+def get_chaos_events():
+    """Get MarketMaker and ChaosAgent events."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        runs = supabase.get_all_runs()
+        completed_runs = [r for r in runs if r.get("status") == "completed"]
+
+        events = []
+        for run in completed_runs:
+            actions = supabase.get_all_actions(run["id"])
+            for action in actions:
+                action_type = action.get("action_type", "")
+                if "marketmaker" in action_type.lower() or "chaos" in action_type.lower() or "price_shock" in action_type.lower():
+                    events.append({
+                        "run_id": run.get("run_number"),
+                        "turn": action.get("turn"),
+                        "action_type": action_type,
+                        "reasoning": action.get("reasoning_trace", "")[:100],
+                        "payload": action.get("payload", {})
+                    })
+
+        # Sort by run, then by turn
+        events.sort(key=lambda x: (x["run_id"], x["turn"]), reverse=True)
+        return {"data": events[:50]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ==================== Thinking/Reasoning Endpoints ====================
 
 @app.get("/api/thinking/{action_id}")
