@@ -75,6 +75,8 @@ class Simulation:
         print(f"\n=== Starting run {self.current_run_number} with {self.turns_per_run} turns ===")
         if self.ENABLE_MARKET_MAKER:
             print("Market Maker: ENABLED (creates volatility every 3 turns)")
+        if self.ENABLE_CHAOS_AGENT:
+            print("Chaos Agent: ENABLED (random unpredictable moves)")
         print(f"Alliance Bonus: {self.ALLIANCE_BONUS} tokens for successful cooperation")
         print(f"Boredom Penalty: Agents lose tokens after 2+ consecutive do_nothing actions")
         print()
@@ -89,6 +91,10 @@ class Simulation:
             # Random price shock event (15% chance each turn)
             if random.random() < 0.15:
                 self._trigger_price_shock(turn)
+
+            # Chaos agent creates unpredictable moves
+            if self.ENABLE_CHAOS_AGENT:
+                self._chaos_agent_action(turn)
 
             # Each agent makes a decision
             for agent in self.agents:
@@ -309,6 +315,43 @@ class Simulation:
             # Price goes down: buy B with A
             output, _ = self.pool.swap('a', amount, 'PriceShock')
             print(f"  [EVENT] Price shock {direction} ({shock_pct*100:.1f}%): Swap {amount:.0f} A -> {output:.1f} B")
+
+    def _chaos_agent_action(self, turn: int):
+        """
+        Chaos agent creates unpredictable market moves.
+        Forces other agents to react to unexpected volatility.
+        """
+        # Random chance to act each turn
+        if random.random() > 0.20:
+            return  # 20% chance - mostly sits out
+
+        # Random action type: 0=swap, 1=liquidity, 2=massive_swap
+        action_type = random.choice(['swap', 'liquidity', 'massive_swap'])
+
+        # Random volatility between 15-40%
+        volatility = random.uniform(0.15, 0.40)
+
+        if action_type == 'swap':
+            # Random direction swap
+            direction = random.choice(['a', 'b'])
+            amount = self.pool.reserve_a * volatility
+            output, fee = self.pool.swap(direction, amount, 'ChaosAgent')
+            print(f"  [ChaosAgent]: Random swap {amount:.0f} -> {output:.1f}")
+
+        elif action_type == 'liquidity':
+            # Random liquidity provision
+            amount_a = self.pool.reserve_a * volatility
+            amount_b = self.pool.reserve_b * volatility
+            # Liquidity agent doesn't track, just burns tokens for effect
+            self.pool.provide_liquidity(amount_a, amount_b, 'ChaosAgent')
+            print(f"  [ChaosAgent]: Random liquidity +{amount_a:.0f}A/+{amount_b:.0f}B")
+
+        else:  # massive_swap
+            # Huge random trade that moves price significantly
+            direction = random.choice(['a', 'b'])
+            amount = self.pool.reserve_a * volatility * 1.5  # Even bigger
+            output, fee = self.pool.swap(direction, amount, 'ChaosAgent')
+            print(f"  [ChaosAgent]: MASSIVE swap {amount:.0f} -> {output:.1f}!")
 
     def _process_alliances(self, turn: int):
         """
