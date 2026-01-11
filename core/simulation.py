@@ -25,6 +25,11 @@ class Simulation:
     # Alliance bonus config
     ALLIANCE_BONUS: float = 15.0  # Bonus for successful alliance
 
+    # Action bonuses
+    LIQUIDITY_BONUS: float = 5.0  # Bonus for providing liquidity
+    SWAP_BONUS: float = 2.0       # Bonus for active trading
+    COORDINATED_TRADE_BONUS: float = 3.0  # Bonus for trading with allies
+
     # Market maker config
     ENABLE_MARKET_MAKER: bool = True
     MARKET_MAKER_INTERVAL: int = 3  # Market maker acts every N turns
@@ -92,6 +97,10 @@ class Simulation:
                 # Execute action
                 if decision:
                     success = agent.execute_action(decision, self.pool)
+
+                    # Grant bonuses for successful actions
+                    if success and action_type != 'do_nothing':
+                        self._grant_action_bonus(agent, action_type, decision, turn)
 
                     # Track inaction
                     if action_type == 'do_nothing':
@@ -331,6 +340,62 @@ class Simulation:
                             reasoning_trace=f"Alliance formed between {agent_a.name} and {agent_b.name}",
                             thinking_trace=""
                         ))
+
+    def _grant_action_bonus(self, agent: Agent, action_type: str, decision: Dict, turn: int):
+        """
+        Grant bonuses for active trading behaviors.
+
+        - Provide liquidity: +5 tokens
+        - Swap: +2 tokens (active trading)
+        - Coordinated trade with ally: +3 bonus tokens
+        """
+        bonus = 0
+        bonus_reason = ""
+
+        if action_type == "provide_liquidity":
+            bonus = self.LIQUIDITY_BONUS
+            bonus_reason = "liquidity provision"
+
+        elif action_type == "swap":
+            bonus = self.SWAP_BONUS
+            bonus_reason = "active trading"
+
+            # Check for coordinated trade with ally
+            payload = decision.get("payload", {})
+            # Coordinated trade is when both parties are allies
+            # We'll give a bonus if the swap is happening in a volatile market
+            # (after market maker or price shock)
+            if self._is_coordinated_trade(agent, turn):
+                bonus += self.COORDINATED_TRADE_BONUS
+                bonus_reason = "coordinated trading with ally"
+
+        if bonus > 0:
+            agent.token_a += bonus
+            print(f"  [BONUS] {agent.name}: +{bonus:.1f} tokens for {bonus_reason}")
+
+            if self.supabase:
+                self.supabase.save_action(ActionData(
+                    run_id=self.current_run_id,
+                    turn=turn,
+                    agent_name=agent.name,
+                    action_type=f"{action_type}_bonus",
+                    payload={"bonus": bonus, "reason": bonus_reason},
+                    reasoning_trace=f"Bonus for {bonus_reason}",
+                    thinking_trace=""
+                ))
+
+    def _is_coordinated_trade(self, agent: Agent, turn: int) -> bool:
+        """
+        Check if this turn has conditions for coordinated trading.
+        Returns True if market volatility events just occurred.
+        """
+        # Coordinated trades are more valuable after market maker or price shock
+        market_maker_just_acted = (turn + 1) % self.MARKET_MAKER_INTERVAL == 0
+        price_shock_just_happened = any(
+            t.get('turn') == turn for t in getattr(self, 'price_shocks', [])
+        ) if hasattr(self, 'price_shocks') else False
+
+        return market_maker_just_acted or price_shock_just_happened
 
 
 def test_simulation():
