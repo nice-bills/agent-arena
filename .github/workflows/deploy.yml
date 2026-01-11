@@ -16,6 +16,7 @@ jobs:
 
       - name: Push to HF Space
         run: |
+          git pull --rebase https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/nice-bill/agent-arena main:main
           git push https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/nice-bill/agent-arena main:main
 
       - name: Wait for HF to process
