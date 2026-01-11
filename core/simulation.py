@@ -81,6 +81,38 @@ class Simulation:
         print(f"Boredom Penalty: Agents lose tokens after 2+ consecutive do_nothing actions")
         print()
 
+        # Register graceful shutdown handler
+        import signal
+        def shutdown_handler(signum, frame):
+            print(f"\n[SHUTDOWN] Received signal, saving progress...")
+            _save_progress(self)
+            print(f"[SHUTDOWN] Run marked as incomplete")
+            raise SystemExit(0)
+
+        signal.signal(signal.SIGTERM, shutdown_handler)
+        signal.signal(signal.SIGINT, shutdown_handler)
+
+        def _save_progress(sim):
+            """Save current progress as incomplete run."""
+            if sim.supabase and sim.current_run_id:
+                metrics = sim._calculate_metrics()
+                try:
+                    sim.supabase.update_run_status(sim.current_run_id, "incomplete")
+                    sim.supabase.save_metrics(MetricsData(
+                        run_id=sim.current_run_id,
+                        gini_coefficient=metrics.get("gini_coefficient", 0),
+                        cooperation_rate=metrics.get("cooperation_rate", 0),
+                        betrayal_count=metrics.get("betrayal_count", 0),
+                        avg_agent_profit=metrics.get("avg_agent_profit", 0),
+                        pool_stability=metrics.get("pool_stability", 0)
+                    ))
+                    # Save current states
+                    for turn in range(len(sim.agents[0]._turn_actions) if hasattr(sim.agents[0], '_turn_actions') else 0, -1, -1):
+                        sim._save_states(turn)
+                        break
+                except Exception as e:
+                    print(f"[SHUTDOWN] Failed to save progress: {e}")
+
         for turn in range(self.turns_per_run):
             print(f"\n--- Turn {turn + 1}/{self.turns_per_run} ---")
 

@@ -22,23 +22,16 @@ jobs:
     steps:
       - name: Trigger DeFi Agent Simulation
         run: |
+          echo "Starting simulation..."
           curl -X POST "${{ secrets.HF_SPACE_URL }}/api/runs" \
             -H "Content-Type: application/json" \
             -d '{
               "num_agents": ${{ github.event.inputs.num_agents || 5 }},
               "turns_per_run": ${{ github.event.inputs.turns_per_run || 10 }}
             }'
+          echo "Simulation triggered"
         env:
           HF_SPACE_URL: ${{ secrets.HF_SPACE_URL }}
 
-  restart-space:
-    runs-on: ubuntu-latest
-    needs: trigger-simulation
-    steps:
-      - name: Restart HF Space to load new code
-        run: |
-          # Call the restart endpoint on HF Space
-          curl -X POST "${{ secrets.HF_SPACE_URL }}/api/restart" \
-            -H "Content-Type: application/json"
-        env:
-          HF_SPACE_URL: ${{ secrets.HF_SPACE_URL }}
+  # Note: Manual restart required after code changes
+  # The space auto-reloads but may need restart for major updates
