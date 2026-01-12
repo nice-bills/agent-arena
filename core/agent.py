@@ -18,6 +18,7 @@ class Agent:
     trade_history: List[Dict] = field(default_factory=list)
     learning_summary: str = ""
     alliances: Dict[str, str] = field(default_factory=dict)
+    alliance_proposals: Dict[str, int] = field(default_factory=dict)  # Track proposals per partner
     consecutive_inaction: int = 0  # Track boredom
     total_boredom_penalty: float = 0  # Accumulated penalty
 
@@ -153,6 +154,27 @@ Output JSON:
     def increment_inaction_counter(self):
         """Increment inaction counter for do_nothing."""
         self.consecutive_inaction += 1
+
+    def get_alliance_fatigue(self, partner: str) -> float:
+        """
+        Calculate alliance fatigue penalty.
+        Repeated proposals to same partner give diminishing returns.
+        Returns multiplier (1.0 = no fatigue, 0.0 = max fatigue).
+        """
+        proposals = self.alliance_proposals.get(partner, 0)
+        # First proposal: 100% bonus
+        # Second: 50% bonus
+        # Third+: 0% bonus
+        if proposals == 0:
+            return 1.0
+        elif proposals == 1:
+            return 0.5
+        else:
+            return 0.0
+
+    def record_alliance_proposal(self, partner: str):
+        """Record that we proposed alliance to this partner."""
+        self.alliance_proposals[partner] = self.alliance_proposals.get(partner, 0) + 1
 
     def infer_strategy(self) -> str:
         """Infer the agent's strategy from recent actions."""

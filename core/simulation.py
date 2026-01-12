@@ -402,18 +402,33 @@ class Simulation:
                     agent_a.alliances.get(agent_b.name) == 'proposed' and
                     agent_b.alliances.get(agent_a.name) == 'proposed'):
 
-                    # Successful alliance! Grant bonus to both
-                    bonus = self.ALLIANCE_BONUS
+                    # Successful alliance! Grant bonus to both (with fatigue)
+                    fatigue_a = agent_a.get_alliance_fatigue(agent_b.name)
+                    fatigue_b = agent_b.get_alliance_fatigue(agent_a.name)
+
+                    # Apply fatigue - minimum 0 bonus for repeated proposals
+                    bonus_a = self.ALLIANCE_BONUS * fatigue_a
+                    bonus_b = self.ALLIANCE_BONUS * fatigue_b
 
                     # Give bonus in Token A
-                    agent_a.token_a += bonus
-                    agent_b.token_a += bonus
+                    agent_a.token_a += bonus_a
+                    agent_b.token_a += bonus_b
+
+                    # Record proposals for fatigue tracking
+                    agent_a.record_alliance_proposal(agent_b.name)
+                    agent_b.record_alliance_proposal(agent_a.name)
 
                     # Mark alliances as successful
                     agent_a.alliances[agent_b.name] = 'success'
                     agent_b.alliances[agent_a.name] = 'success'
 
-                    print(f"  [ALLIANCE] {agent_a.name} + {agent_b.name}: BONUS +{bonus} tokens each!")
+                    # Print appropriate message
+                    if fatigue_a == 0 or fatigue_b == 0:
+                        print(f"  [ALLIANCE] {agent_a.name} + {agent_b.name}: No bonus (alliance fatigue)")
+                    elif fatigue_a == 0.5 or fatigue_b == 0.5:
+                        print(f"  [ALLIANCE] {agent_a.name} + {agent_b.name}: HALF bonus +{bonus_a:.1f}/+{bonus_b:.1f} tokens")
+                    else:
+                        print(f"  [ALLIANCE] {agent_a.name} + {agent_b.name}: BONUS +{bonus_a:.1f}/+{bonus_b:.1f} tokens")
 
                     if self.supabase:
                         self.supabase.save_action(ActionData(
