@@ -23,7 +23,7 @@ class Simulation:
     supabase: Optional[SupabaseClient] = None
 
     # Alliance bonus config
-    ALLIANCE_BONUS: float = 8.0  # Bonus for successful alliance
+    ALLIANCE_BONUS: float = 4.0  # Bonus for successful alliance
 
     # Action bonuses
     LIQUIDITY_BONUS: float = 8.0  # Bonus for providing liquidity
