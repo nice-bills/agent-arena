@@ -2,12 +2,9 @@
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import json
-import os
 
 from api.supabase_client import SupabaseClient
 from core.simulation import Simulation
@@ -27,11 +24,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Serve frontend static files
-frontend_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
-if os.path.exists(frontend_dist):
-    app.mount("/static", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="static")
 
 # Initialize clients
 supabase = None
@@ -462,19 +454,3 @@ def run_server():
 if __name__ == "__main__":
     print("Starting DeFi Agents API server on http://0.0.0.0:8000")
     run_server()
-
-
-# ==================== SPA Fallback ====================
-# Serve index.html for any non-API routes (SPA support)
-@app.get("/{path:path}")
-async def serve_frontend(path: str):
-    """Serve frontend for non-API routes."""
-    # Skip API routes
-    if path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="API endpoint not found")
-
-    index_path = os.path.join(frontend_dist, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    else:
-        return {"error": "Frontend not built", "message": "Run 'npm run build' in frontend directory"}
