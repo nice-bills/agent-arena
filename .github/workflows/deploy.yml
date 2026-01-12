@@ -6,6 +6,7 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
+      - 'frontend/**'  # Frontend builds on HF Space
 
 jobs:
   deploy:
@@ -17,17 +18,14 @@ jobs:
       - name: Push to HF Space
         run: |
           pip install -U huggingface_hub
-          python -c "from huggingface_hub import HfApi; api = HfApi(token='${{ secrets.HF_TOKEN }}'); api.upload_folder(folder_path='.', repo_id='nice-bill/agent-arena', repo_type='space', commit_message='deploy from github')"
+          python -c "from huggingface_hub import HfApi; api = HfApi(token='${{ secrets.HF_TOKEN }}'); api.upload_folder(folder_path='.', repo_id='nice-bill/agent-arena', repo_type='space', commit_message='deploy from github', ignore_folder=['frontend/dist'])"
 
-      - name: Wait for HF to process
-        run: sleep 10
-
-      - name: Restart HF Space
+      - name: Restart HF Space to rebuild frontend
         run: |
           curl -X POST "https://nice-bill-agent-arena.hf.space/api/restart" \
             -H "Content-Type: application/json"
 
       - name: Verify new version
         run: |
-          sleep 5
+          sleep 15
           curl -s "https://nice-bill-agent-arena.hf.space/api/version"
