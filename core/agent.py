@@ -112,7 +112,7 @@ Total liquidity: {pool_state.get('total_liquidity', 0):.2f}
 - PROVIDE_LIQUIDITY: Earns fees from all swaps, +8 bonus tokens
 - PROPOSE_ALLIANCE: If they accept, you BOTH get +4 bonus tokens
 - COORDINATED TRADES: Trade during volatility +5 bonus tokens!
-- POSITIVE PROFIT: End turn with profit = +10 bonus tokens!
+- POSITIVE PROFIT: End turn with profit = +15 bonus tokens!
 
 === AVAILABLE ACTIONS ===
 1. "swap": Trade tokens (specify from, to, amount) - ACTIVE TRADING

@@ -29,7 +29,7 @@ class Simulation:
     LIQUIDITY_BONUS: float = 8.0  # Bonus for providing liquidity
     SWAP_BONUS: float = 3.0       # Bonus for active trading
     COORDINATED_TRADE_BONUS: float = 5.0  # Bonus for trading with allies
-    PROFIT_BONUS: float = 10.0    # Bonus for ending turn with positive profit
+    PROFIT_BONUS: float = 15.0    # Bonus for ending turn with positive profit
 
     # Market maker config
     ENABLE_MARKET_MAKER: bool = True
