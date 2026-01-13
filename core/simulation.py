@@ -436,7 +436,7 @@ class Simulation:
                             turn=turn,
                             agent_name=f"{agent_a.name}+{agent_b.name}",
                             action_type="alliance_success",
-                            payload={"bonus": bonus, "partners": [agent_a.name, agent_b.name]},
+                            payload={"bonus_a": bonus_a, "bonus_b": bonus_b, "partners": [agent_a.name, agent_b.name]},
                             reasoning_trace=f"Alliance formed between {agent_a.name} and {agent_b.name}",
                             thinking_trace=""
                         ))
