@@ -165,7 +165,12 @@ def create_run(request: RunRequest):
             except:
                 pass
 
-        raise HTTPException(status_code=500, detail=f"Run failed: {error_msg}")
+        # Include more detail in error for debugging
+        import traceback as tb
+        detail = f"Run failed: {error_msg}"
+        if "MiniMax" in error_msg or "API" in error_msg or "API key" in error_msg:
+            detail += " (MiniMax API error - check API key configuration)"
+        raise HTTPException(status_code=500, detail=detail)
 
 
 @app.get("/api/runs")

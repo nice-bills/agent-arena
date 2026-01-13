@@ -36,11 +36,14 @@ class MiniMaxClient:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            extra_body={"reasoning_split": self.reasoning_split}
-        )
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                extra_body={"reasoning_split": self.reasoning_split}
+            )
+        except Exception as e:
+            raise RuntimeError(f"MiniMax API call failed: {str(e)}")
 
         # Extract thinking from reasoning_details
         thinking_text = self._extract_thinking(response)

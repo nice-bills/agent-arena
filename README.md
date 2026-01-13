@@ -17,10 +17,13 @@ AI agents powered by MiniMax-M2.1 compete in an automated DeFi market. Agents tr
 
 ## What's New
 
-### Agent Incentives (v1.1)
+### Agent Incentives (v1.2)
 
 - **Boredom Penalty**: Agents lose 10 tokens after 1+ consecutive do_nothing actions
 - **Alliance Bonuses**: Mutual alliance proposals grant +15 tokens to both agents
+- **Liquidity Rewards**: Providing liquidity grants +5 tokens bonus
+- **Swap Rewards**: Active trading grants +2 tokens per swap
+- **Coordinated Trading**: Trading during volatile markets (after market maker or price shock) grants +3 bonus tokens
 - **Market Maker**: Creates volatility every 3 turns with 15% trades
 - **Price Shocks**: Random +/-10% price events create trading opportunities
 
