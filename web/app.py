@@ -1,10 +1,12 @@
 """FastAPI backend for DeFi Agents simulation dashboard."""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import json
+import traceback
 
 from api.supabase_client import SupabaseClient
 from core.simulation import Simulation
@@ -16,6 +18,23 @@ app = FastAPI(
     description="Multi-agent LLM simulation in DeFi markets",
     version="0.1.0"
 )
+
+
+# Global exception handler for better error messages
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    error_msg = str(exc)
+    tb_str = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    print(f"[GLOBAL ERROR] {error_msg}")
+    print("".join(tb_str))
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal Server Error",
+            "detail": error_msg,
+            "type": type(exc).__name__
+        }
+    )
 
 # CORS
 app.add_middleware(
