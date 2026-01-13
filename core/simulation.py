@@ -441,6 +441,22 @@ class Simulation:
                             thinking_trace=""
                         ))
 
+    def _get_leader_bonus(self, agent: Agent) -> float:
+        """
+        Check if agent is the top performer and deserves leader multiplier.
+        Returns 2.0 if leader, 1.0 otherwise.
+        """
+        if not self.agents or len(self.agents) < 2:
+            return 1.0
+
+        agent_profit = agent.calculate_profit()
+        for other in self.agents:
+            if other.name != agent.name:
+                if other.calculate_profit() > agent_profit:
+                    return 1.0  # Not the leader
+
+        return 2.0  # Leader gets 2x bonus
+
     def _grant_action_bonus(self, agent: Agent, action_type: str, decision: Dict, turn: int):
         """
         Grant bonuses for active trading behaviors.
@@ -449,22 +465,28 @@ class Simulation:
         - Swap: +3 tokens (active trading)
         - Coordinated trade with ally: +5 bonus tokens
         - Profitable trade: +5 bonus tokens
+        - Escape velocity: Top agent gets 2x multiplier on all bonuses
         """
         bonus = 0
         bonus_reason = ""
 
+        # Check if agent is the top performer (escape velocity)
+        leader_bonus = self._get_leader_bonus(agent)
+        if leader_bonus > 1.0:
+            bonus_reason += f"(LEADER 2x) "
+
         if action_type == "provide_liquidity":
-            bonus = self.LIQUIDITY_BONUS
-            bonus_reason = "liquidity provision"
+            bonus = self.LIQUIDITY_BONUS * leader_bonus
+            bonus_reason += "liquidity provision"
 
         elif action_type == "swap":
-            bonus = self.SWAP_BONUS
-            bonus_reason = "active trading"
+            bonus = self.SWAP_BONUS * leader_bonus
+            bonus_reason += "active trading"
 
             # Check for coordinated trade with ally
             if self._is_coordinated_trade(agent, turn):
-                bonus += self.COORDINATED_TRADE_BONUS
-                bonus_reason = "coordinated trading with ally"
+                bonus += self.COORDINATED_TRADE_BONUS * leader_bonus
+                bonus_reason += " + coordinated trading"
 
             # Check if swap was profitable (compare pre/post profit)
             if hasattr(agent, '_last_profit'):
@@ -505,12 +527,16 @@ class Simulation:
         """
         Grant bonus tokens to agents with positive profit at end of turn.
         Encourages profit-seeking behavior.
+        Leaders get 2x profit bonus (escape velocity).
         """
         for agent in self.agents:
             profit = agent.calculate_profit()
             if profit > 0:
-                agent.token_a += self.PROFIT_BONUS
-                print(f"  [PROFIT BONUS] {agent.name}: +{self.PROFIT_BONUS:.1f} tokens (profit: {profit:.2f})")
+                leader_mult = self._get_leader_bonus(agent)
+                bonus = self.PROFIT_BONUS * leader_mult
+                agent.token_a += bonus
+                leader_tag = " (LEADER 2x)" if leader_mult > 1.0 else ""
+                print(f"  [PROFIT BONUS] {agent.name}: +{bonus:.1f} tokens{leader_tag} (profit: {profit:.2f})")
 
                 if self.supabase:
                     self.supabase.save_action(ActionData(
