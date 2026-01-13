@@ -92,9 +92,17 @@ def health_check():
 def create_run(request: RunRequest):
     """Start a new simulation run."""
     import traceback
+    import signal
 
     sim = None
     run_id = None
+
+    # Set timeout to prevent hangs (30 minutes)
+    def timeout_handler(signum, frame):
+        raise TimeoutError("Run timed out after 30 minutes")
+
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(1800)  # 30 minutes
 
     try:
         sim = Simulation(
@@ -107,6 +115,9 @@ def create_run(request: RunRequest):
         run_id = sim.current_run_id
 
         metrics = sim.run()
+
+        # Cancel timeout on success
+        signal.alarm(0)
 
         # Get agent states
         agent_data = []
@@ -125,10 +136,26 @@ def create_run(request: RunRequest):
             agents=agent_data
         )
 
+    except TimeoutError as e:
+        error_msg = str(e)
+        print(f"[ERROR] Run timed out: {error_msg}")
+
+        if run_id and supabase:
+            try:
+                supabase.update_run_status(run_id, "timeout")
+                print(f"[ERROR] Marked run {run_id} as timeout")
+            except:
+                pass
+
+        raise HTTPException(status_code=504, detail=f"Run timed out: {error_msg}")
+
     except Exception as e:
         error_msg = str(e)
         print(f"[ERROR] Run failed: {error_msg}")
         traceback.print_exc()
+
+        # Cancel timeout on error
+        signal.alarm(0)
 
         # Try to mark run as failed if we have a run_id
         if run_id and supabase:
@@ -163,6 +190,31 @@ def get_run_detail(run_id: int):
     try:
         detail = supabase.get_run_detail(run_id)
         return detail
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/admin/clear-stuck-runs")
+def clear_stuck_runs():
+    """Clear all runs marked as 'running' - marks them as failed."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from datetime import datetime
+        # Get all running runs
+        runs = supabase.get_all_runs()
+        stuck_runs = [r for r in runs if r.get("status") == "running"]
+
+        updated = 0
+        for run in stuck_runs:
+            supabase.client.table("runs").update({
+                "status": "failed",
+                "end_time": datetime.now().isoformat()
+            }).eq("id", run["id"]).execute()
+            updated += 1
+
+        return {"cleared": updated, "message": f"Marked {updated} stuck runs as failed"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
