@@ -36,12 +36,19 @@ class Simulation:
     MARKET_MAKER_INTERVAL: int = 3  # Market maker acts every N turns
     MARKET_MAKER_VOLATILITY: float = 0.15  # 15% price shock
 
+    # Chaos agent config
+    ENABLE_CHAOS_AGENT: bool = True
+    CHAOS_AGENT_CHANCE: float = 0.20  # 20% chance each turn
+    CHAOS_AGENT_MIN_VOLATILITY: float = 0.15  # Min 15% of reserves
+    CHAOS_AGENT_MAX_VOLATILITY: float = 0.40  # Max 40% of reserves
+
     def __post_init__(self):
         self.agents: List[Agent] = []
         self.pool: Optional[Pool] = None
         self.current_run_id: Optional[int] = None
         self.current_run_number: int = 0
         self.market_maker_trades: List[Dict] = []
+        self.price_shocks: List[Dict] = []
 
         if self.supabase is None:
             try:
