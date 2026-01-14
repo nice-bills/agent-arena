@@ -77,6 +77,8 @@ class Simulation:
 
     def run(self, run_number: int = None) -> Dict:
         """Execute a complete simulation run."""
+        print(f"[DEBUG] run() called, supabase is {'connected' if self.supabase else 'None'}")
+
         self.initialize_run(run_number)
 
         print(f"\n=== Starting run {self.current_run_number} with {self.turns_per_run} turns ===")
@@ -241,39 +243,58 @@ class Simulation:
 
     def _save_action(self, agent: Agent, turn: int, decision: Dict, thinking: str):
         """Save agent action to database."""
-        self.supabase.save_action(ActionData(
-            run_id=self.current_run_id,
-            turn=turn,
-            agent_name=agent.name,
-            action_type=decision.get("action", "unknown"),
-            payload=decision.get("payload", {}),
-            reasoning_trace=decision.get("reasoning", ""),
-            thinking_trace=thinking
-        ))
-
-    def _save_states(self, turn: int):
-        """Save agent and pool states to database."""
-        # Save agent states
-        for agent in self.agents:
-            self.supabase.save_agent_state(AgentStateData(
+        if not self.supabase:
+            return
+        try:
+            self.supabase.save_action(ActionData(
                 run_id=self.current_run_id,
                 turn=turn,
                 agent_name=agent.name,
-                token_a_balance=agent.token_a,
-                token_b_balance=agent.token_b,
-                profit=agent.calculate_profit(),
-                strategy=agent.infer_strategy()
+                action_type=decision.get("action", "unknown"),
+                payload=decision.get("payload", {}),
+                reasoning_trace=decision.get("reasoning", ""),
+                thinking_trace=thinking
             ))
+            print(f"[DEBUG] Saved action for {agent.name}: {decision.get('action', 'unknown')}")
+        except Exception as e:
+            print(f"[ERROR] Failed to save action for {agent.name}: {e}")
+
+    def _save_states(self, turn: int):
+        """Save agent and pool states to database."""
+        if not self.supabase:
+            print(f"[DEBUG] Skipping state save - no supabase")
+            return
+
+        print(f"[DEBUG] Saving states for turn {turn}, run_id={self.current_run_id}")
+        # Save agent states
+        for agent in self.agents:
+            try:
+                self.supabase.save_agent_state(AgentStateData(
+                    run_id=self.current_run_id,
+                    turn=turn,
+                    agent_name=agent.name,
+                    token_a_balance=agent.token_a,
+                    token_b_balance=agent.token_b,
+                    profit=agent.calculate_profit(),
+                    strategy=agent.infer_strategy()
+                ))
+                print(f"[DEBUG] Saved state for {agent.name}")
+            except Exception as e:
+                print(f"[ERROR] Failed to save agent state for {agent.name}: {e}")
 
         # Save pool state
-        self.supabase.save_pool_state(PoolStateData(
-            run_id=self.current_run_id,
-            turn=turn,
-            reserve_a=self.pool.reserve_a,
-            reserve_b=self.pool.reserve_b,
-            price_ab=self.pool.price_ab,
-            total_liquidity=self.pool.total_liquidity
-        ))
+        try:
+            self.supabase.save_pool_state(PoolStateData(
+                run_id=self.current_run_id,
+                turn=turn,
+                reserve_a=self.pool.reserve_a,
+                reserve_b=self.pool.reserve_b,
+                price_ab=self.pool.price_ab,
+                total_liquidity=self.pool.total_liquidity
+            ))
+            print(f"[DEBUG] Saved pool state")
+        except Exception as e:
+            print(f"[ERROR] Failed to save pool state: {e}")
 
     def _calculate_metrics(self) -> Dict:
         """Calculate run metrics."""
