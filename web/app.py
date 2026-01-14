@@ -105,6 +105,15 @@ def health_check():
     }
 
 
+@app.get("/api/debug/supabase")
+def debug_supabase():
+    """Debug endpoint to check supabase status."""
+    return {
+        "supabase_is_none": supabase is None,
+        "supabase_type": type(supabase).__name__ if supabase else None,
+    }
+
+
 # ==================== Run Endpoints ====================
 
 @app.post("/api/runs")
