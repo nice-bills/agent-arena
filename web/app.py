@@ -8,7 +8,7 @@ from typing import List, Optional, Dict, Any
 import json
 import traceback
 
-from api.supabase_client import SupabaseClient
+from api.supabase_client import SupabaseClient, ActionData
 from core.simulation import Simulation
 from core.analyzer import Analyzer
 from core.summarizer import Summarizer
