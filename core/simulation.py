@@ -88,16 +88,19 @@ class Simulation:
         print(f"Boredom Penalty: Agents lose tokens after 2+ consecutive do_nothing actions")
         print()
 
-        # Register graceful shutdown handler
-        import signal
-        def shutdown_handler(signum, frame):
-            print(f"\n[SHUTDOWN] Received signal, saving progress...")
-            _save_progress(self)
-            print(f"[SHUTDOWN] Run marked as incomplete")
-            raise SystemExit(0)
+        # Register graceful shutdown handler (may not work in all environments)
+        try:
+            import signal
+            def shutdown_handler(signum, frame):
+                print(f"\n[SHUTDOWN] Received signal, saving progress...")
+                _save_progress(self)
+                print(f"[SHUTDOWN] Run marked as incomplete")
+                raise SystemExit(0)
 
-        signal.signal(signal.SIGTERM, shutdown_handler)
-        signal.signal(signal.SIGINT, shutdown_handler)
+            signal.signal(signal.SIGTERM, shutdown_handler)
+            signal.signal(signal.SIGINT, shutdown_handler)
+        except (ValueError, AttributeError) as e:
+            print(f"[WARN] Signal handlers not available: {e}")
 
         def _save_progress(sim):
             """Save current progress as incomplete run."""
