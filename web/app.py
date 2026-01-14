@@ -121,9 +121,15 @@ def test_save():
         return {"error": "Supabase not configured"}
 
     try:
+        # Get a real run_id
+        runs = supabase.get_all_runs()
+        if not runs:
+            return {"error": "No runs found"}
+        run_id = runs[0]['id']
+
         # Test saving a simple action
         supabase.save_action(ActionData(
-            run_id=1,
+            run_id=run_id,
             turn=0,
             agent_name="debug_test",
             action_type="test",
@@ -131,7 +137,7 @@ def test_save():
             reasoning_trace="debug test",
             thinking_trace=""
         ))
-        return {"success": True, "message": "Test action saved"}
+        return {"success": True, "message": f"Test action saved to run {run_id}"}
     except Exception as e:
         return {"error": str(e)}
 
