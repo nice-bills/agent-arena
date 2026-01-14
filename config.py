@@ -18,7 +18,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 # Simulation Configuration
-NUM_AGENTS = int(os.getenv("NUM_AGENTS", "5"))
+NUM_AGENTS = int(os.getenv("NUM_AGENTS", "4"))
 TURNS_PER_RUN = int(os.getenv("TURNS_PER_RUN", "5"))
 TOTAL_RUNS = int(os.getenv("TOTAL_RUNS", "100"))
 

@@ -270,6 +270,47 @@ def clear_stuck_runs():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/admin/reset-all")
+def reset_all():
+    """Clear ALL data and reset run counter to start fresh."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        from datetime import datetime
+
+        # Delete all actions
+        supabase.client.table("actions").delete().execute()
+
+        # Delete all agent states
+        supabase.client.table("agent_states").delete().execute()
+
+        # Delete all pool states
+        supabase.client.table("pool_states").delete().execute()
+
+        # Delete all run metrics
+        supabase.client.table("run_metrics").delete().execute()
+
+        # Delete all run summaries
+        supabase.client.table("run_summaries").delete().execute()
+
+        # Delete all runs
+        supabase.client.table("runs").delete().execute()
+
+        # Reset the run counter via RPC if available
+        try:
+            supabase.client.rpc("reset_run_counter").execute()
+        except Exception:
+            pass  # RPC might not exist
+
+        return {
+            "message": "All data cleared. Ready to start fresh from Run 1.",
+            "status": "reset"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ==================== Metrics Endpoints ====================
 
 @app.get("/api/metrics/{run_id}")
