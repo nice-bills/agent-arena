@@ -114,6 +114,28 @@ def debug_supabase():
     }
 
 
+@app.get("/api/debug/test-save")
+def test_save():
+    """Debug endpoint to test saving data."""
+    if not supabase:
+        return {"error": "Supabase not configured"}
+
+    try:
+        # Test saving a simple action
+        supabase.save_action(ActionData(
+            run_id=1,
+            turn=0,
+            agent_name="debug_test",
+            action_type="test",
+            payload={"test": True},
+            reasoning_trace="debug test",
+            thinking_trace=""
+        ))
+        return {"success": True, "message": "Test action saved"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ==================== Run Endpoints ====================
 
 @app.post("/api/runs")
