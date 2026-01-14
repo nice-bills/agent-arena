@@ -279,29 +279,23 @@ def reset_all():
     try:
         from datetime import datetime
 
-        # Delete all actions
-        supabase.client.table("actions").delete().execute()
+        # Delete all actions (need id.gt(0) to match all)
+        supabase.client.table("actions").delete().gt("id", 0).execute()
 
         # Delete all agent states
-        supabase.client.table("agent_states").delete().execute()
+        supabase.client.table("agent_states").delete().gt("id", 0).execute()
 
         # Delete all pool states
-        supabase.client.table("pool_states").delete().execute()
+        supabase.client.table("pool_states").delete().gt("id", 0).execute()
 
         # Delete all run metrics
-        supabase.client.table("run_metrics").delete().execute()
+        supabase.client.table("run_metrics").delete().gt("id", 0).execute()
 
         # Delete all run summaries
-        supabase.client.table("run_summaries").delete().execute()
+        supabase.client.table("run_summaries").delete().gt("id", 0).execute()
 
         # Delete all runs
-        supabase.client.table("runs").delete().execute()
-
-        # Reset the run counter via RPC if available
-        try:
-            supabase.client.rpc("reset_run_counter").execute()
-        except Exception:
-            pass  # RPC might not exist
+        supabase.client.table("runs").delete().gt("id", 0).execute()
 
         return {
             "message": "All data cleared. Ready to start fresh from Run 1.",
