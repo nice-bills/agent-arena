@@ -111,17 +111,9 @@ def health_check():
 def create_run(request: RunRequest):
     """Start a new simulation run."""
     import traceback
-    import signal
 
     sim = None
     run_id = None
-
-    # Set timeout to prevent hangs (30 minutes)
-    def timeout_handler(signum, frame):
-        raise TimeoutError("Run timed out after 30 minutes")
-
-    signal.signal(signal.SIGALRM, timeout_handler)
-    signal.alarm(1800)  # 30 minutes
 
     try:
         sim = Simulation(
@@ -134,9 +126,6 @@ def create_run(request: RunRequest):
         run_id = sim.current_run_id
 
         metrics = sim.run()
-
-        # Cancel timeout on success
-        signal.alarm(0)
 
         # Get agent states
         agent_data = []
@@ -172,9 +161,6 @@ def create_run(request: RunRequest):
         error_msg = str(e)
         print(f"[ERROR] Run failed: {error_msg}")
         traceback.print_exc()
-
-        # Cancel timeout on error
-        signal.alarm(0)
 
         # Try to mark run as failed if we have a run_id
         if run_id and supabase:
