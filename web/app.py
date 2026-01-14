@@ -115,12 +115,16 @@ def create_run(request: RunRequest):
     sim = None
     run_id = None
 
+    print(f"[DEBUG] create_run: supabase={'connected' if supabase else 'None'}")
+
     try:
         sim = Simulation(
             num_agents=request.num_agents,
             turns_per_run=request.turns_per_run,
             supabase=supabase
         )
+
+        print(f"[DEBUG] After Simulation init: sim.supabase={'yes' if sim.supabase else 'NO'}")
 
         # Store run_id for error recovery
         run_id = sim.current_run_id
