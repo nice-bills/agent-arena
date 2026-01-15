@@ -14,7 +14,7 @@ on:
       turns_per_run:
         description: 'Turns per run'
         required: false
-        default: '10'
+        default: '5'
 
 jobs:
   trigger-simulation:
@@ -27,7 +27,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "num_agents": ${{ github.event.inputs.num_agents || 5 }},
-              "turns_per_run": ${{ github.event.inputs.turns_per_run || 10 }}
+              "turns_per_run": ${{ github.event.inputs.turns_per_run || 5 }}
             }'
           echo "Simulation triggered"
         env:
