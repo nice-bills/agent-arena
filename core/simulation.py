@@ -38,9 +38,9 @@ class Simulation:
 
     # Chaos agent config
     ENABLE_CHAOS_AGENT: bool = True
-    CHAOS_AGENT_CHANCE: float = 0.20  # 20% chance each turn
-    CHAOS_AGENT_MIN_VOLATILITY: float = 0.15  # Min 15% of reserves
-    CHAOS_AGENT_MAX_VOLATILITY: float = 0.40  # Max 40% of reserves
+    CHAOS_AGENT_CHANCE: float = 0.35  # 35% chance each turn
+    CHAOS_AGENT_MIN_VOLATILITY: float = 0.25  # Min 25% of reserves
+    CHAOS_AGENT_MAX_VOLATILITY: float = 0.50  # Max 50% of reserves
 
     def __post_init__(self):
         self.agents: List[Agent] = []
@@ -134,12 +134,12 @@ class Simulation:
             if self.ENABLE_MARKET_MAKER and (turn + 1) % self.MARKET_MAKER_INTERVAL == 0:
                 self._market_maker_action(turn)
 
-            # Random price shock event (15% chance each turn)
-            if random.random() < 0.15:
+            # Random price shock event (25% chance each turn)
+            if random.random() < 0.25:
                 self._trigger_price_shock(turn)
 
-            # Chaos agent creates unpredictable moves
-            if self.ENABLE_CHAOS_AGENT:
+            # Chaos agent creates unpredictable moves (35% chance)
+            if self.ENABLE_CHAOS_AGENT and random.random() < 0.35:
                 self._chaos_agent_action(turn)
 
             # Each agent makes a decision
@@ -354,8 +354,8 @@ class Simulation:
         Random external event that causes a price shock.
         Creates trading opportunities for attentive agents.
         """
-        # Random shock between -10% and +10%
-        shock_pct = random.uniform(-0.10, 0.10)
+        # Random shock between -20% and +20%
+        shock_pct = random.uniform(-0.20, 0.20)
         direction = "UP" if shock_pct > 0 else "DOWN"
 
         # Apply shock by doing a large swap
@@ -375,15 +375,11 @@ class Simulation:
         Chaos agent creates unpredictable market moves.
         Forces other agents to react to unexpected volatility.
         """
-        # Random chance to act each turn
-        if random.random() > 0.20:
-            return  # 20% chance - mostly sits out
-
         # Random action type: 0=swap, 1=liquidity, 2=massive_swap
         action_type = random.choice(['swap', 'liquidity', 'massive_swap'])
 
-        # Random volatility between 15-40%
-        volatility = random.uniform(0.15, 0.40)
+        # Random volatility between 25-50% (increased impact)
+        volatility = random.uniform(0.25, 0.50)
 
         if action_type == 'swap':
             # Random direction swap
