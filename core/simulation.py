@@ -313,7 +313,7 @@ class Simulation:
             cumsum += (i + 1) * val
 
         gini = (2 * cumsum) / (n * sum(sorted_vals)) - (n + 1) / n
-        return max(0, gini)  # Ensure non-negative
+        return max(0, min(1, gini))  # Clamp to 0-1
 
     def _calculate_cooperation(self) -> float:
         """Calculate cooperation rate (alliances / agents)."""
