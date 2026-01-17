@@ -173,13 +173,18 @@ Keep the tone informative and analytical. Use markdown formatting for readabilit
 
     def summarize_and_save(self, run_id: int) -> Dict:
         """Generate summary and save to database."""
+        # Get run info to get the human-readable run_number
+        runs = self.supabase.get_all_runs()
+        run_info = next((r for r in runs if r["id"] == run_id), {})
+        run_number = run_info.get("run_number", run_id)
+
         summary_text = self.generate_summary(run_id)
 
-        # Save to database
-        summary_data = SummaryData(run_id=run_id, summary_text=summary_text)
+        # Save to database with run_number (not internal ID)
+        summary_data = SummaryData(run_id=run_number, summary_text=summary_text)
         self.supabase.save_run_summary(summary_data)
 
         return {
-            "run_id": run_id,
+            "run_id": run_number,
             "summary": summary_text
         }

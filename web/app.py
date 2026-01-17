@@ -305,6 +305,39 @@ def reset_all():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/admin/fix-summary-runids")
+def fix_summary_runids():
+    """Fix summary run_id values to use run_number instead of internal ID."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        # Get all runs
+        runs = supabase.get_all_runs()
+        run_id_to_number = {r["id"]: r.get("run_number", r["id"]) for r in runs}
+
+        # Get all summaries
+        summaries = supabase.get_all_summaries()
+
+        fixed = 0
+        for summary in summaries:
+            old_run_id = summary.get("run_id")
+            if old_run_id in run_id_to_number:
+                correct_run_number = run_id_to_number[old_run_id]
+                if old_run_id != correct_run_number:
+                    supabase.client.table("run_summaries").update({
+                        "run_id": correct_run_number
+                    }).eq("id", summary["id"]).execute()
+                    fixed += 1
+
+        return {
+            "message": f"Fixed {fixed} summary run_ids",
+            "fixed": fixed
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ==================== Metrics Endpoints ====================
 
 @app.get("/api/metrics/{run_id}")
