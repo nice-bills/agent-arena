@@ -161,9 +161,13 @@ function App() {
 
   const getFilteredSummaries = () => {
     if (!expandedRun) return summaries
-    const run = runs.find(r => r.id === expandedRun)
-    if (!run) return summaries
-    return summaries.filter(s => s.run_id === run.run_number)
+    // Match by internal run ID (summary.run_id contains internal database ID)
+    return summaries.filter(s => s.run_id === expandedRun)
+  }
+
+  const getRunNumber = (internalId) => {
+    const run = runs.find(r => r.id === internalId)
+    return run ? run.run_number : internalId
   }
 
   if (loading) {
@@ -458,7 +462,7 @@ function App() {
                         }
                         return (
                           <fieldset key={summary.id} className="border border-gray-400 p-2 bg-white">
-                            <legend className="px-1 font-bold">Run {summary.run_id} Report</legend>
+                            <legend className="px-1 font-bold">Run {getRunNumber(summary.run_id)} Report</legend>
                             <p className="text-xs font-mono whitespace-pre-wrap">{text}</p>
                           </fieldset>
                         )
