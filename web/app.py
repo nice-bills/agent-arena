@@ -382,7 +382,7 @@ def get_chaos_events():
 
         events = []
         for run in completed_runs:
-            actions = supabase.get_all_actions(run["id"])
+            actions = supabase.get_actions(run["id"])
             for action in actions:
                 action_type = action.get("action_type", "")
                 if "marketmaker" in action_type.lower() or "chaos" in action_type.lower() or "price_shock" in action_type.lower():
