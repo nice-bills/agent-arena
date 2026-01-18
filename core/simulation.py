@@ -375,33 +375,54 @@ class Simulation:
         Chaos agent creates unpredictable market moves.
         Forces other agents to react to unexpected volatility.
         """
-        # Random action type: 0=swap, 1=liquidity, 2=massive_swap
-        action_type = random.choice(['swap', 'liquidity', 'massive_swap'])
+        # Random action type: swap, liquidity, or massive_swap
+        action_type = random.choice(['chaos_swap', 'chaos_liquidity', 'chaos_massive_swap'])
 
         # Random volatility between 25-50% (increased impact)
         volatility = random.uniform(0.25, 0.50)
 
-        if action_type == 'swap':
+        chaos_agent = Agent("ChaosAgent")
+
+        if action_type == 'chaos_swap':
             # Random direction swap
             direction = random.choice(['a', 'b'])
             amount = self.pool.reserve_a * volatility
             output, fee = self.pool.swap(direction, amount, 'ChaosAgent')
+            decision = {"action": "chaos_swap", "direction": direction, "amount": amount}
+            self._save_chaos_action(chaos_agent, turn, decision, "Chaos agent creates random market volatility")
             print(f"  [ChaosAgent]: Random swap {amount:.0f} -> {output:.1f}")
 
-        elif action_type == 'liquidity':
+        elif action_type == 'chaos_liquidity':
             # Random liquidity provision
             amount_a = self.pool.reserve_a * volatility
             amount_b = self.pool.reserve_b * volatility
-            # Liquidity agent doesn't track, just burns tokens for effect
             self.pool.provide_liquidity(amount_a, amount_b, 'ChaosAgent')
+            decision = {"action": "chaos_liquidity", "amount_a": amount_a, "amount_b": amount_b}
+            self._save_chaos_action(chaos_agent, turn, decision, "Chaos agent adds unpredictable liquidity")
             print(f"  [ChaosAgent]: Random liquidity +{amount_a:.0f}A/+{amount_b:.0f}B")
 
-        else:  # massive_swap
+        else:  # chaos_massive_swap
             # Huge random trade that moves price significantly
             direction = random.choice(['a', 'b'])
             amount = self.pool.reserve_a * volatility * 1.5  # Even bigger
             output, fee = self.pool.swap(direction, amount, 'ChaosAgent')
+            decision = {"action": "chaos_massive_swap", "direction": direction, "amount": amount}
+            self._save_chaos_action(chaos_agent, turn, decision, "Chaos agent executes MASSIVE trade causing extreme volatility!")
             print(f"  [ChaosAgent]: MASSIVE swap {amount:.0f} -> {output:.1f}!")
+
+    def _save_chaos_action(self, agent: Agent, turn: int, decision: Dict, thinking: str):
+        """Save chaos agent action to database."""
+        if not self.supabase:
+            return
+        self.supabase.save_action(ActionData(
+            run_id=self.current_run_id,
+            turn=turn,
+            agent_name=agent.name,
+            action_type=decision.get("action", "unknown"),
+            payload=decision,
+            reasoning_trace=thinking,
+            thinking_trace=""
+        ))
 
     def _process_alliances(self, turn: int):
         """
