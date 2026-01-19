@@ -25,6 +25,7 @@ function App() {
   const [loadingRunId, setLoadingRunId] = useState(null)
   const [actionDistribution, setActionDistribution] = useState([])
   const [chaosEvents, setChaosEvents] = useState([])
+  const [wealthTrajectories, setWealthTrajectories] = useState([])
   const summariesRef = useRef(null)
 
   useEffect(() => {
@@ -46,7 +47,8 @@ function App() {
         fetchSummaries(),
         fetchAllAgentsProfits(),
         fetchActionDistribution(),
-        fetchChaosEvents()
+        fetchChaosEvents(),
+        fetchWealthTrajectories()
       ])
     } finally {
       setLoading(false)
@@ -123,6 +125,18 @@ function App() {
       }
     } catch (e) {
       console.error('Failed to fetch chaos events:', e)
+    }
+  }
+
+  const fetchWealthTrajectories = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/analysis/all-wealth-trajectories`)
+      if (res.ok) {
+        const data = await res.json()
+        setWealthTrajectories(data.trajectories || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch wealth trajectories:', e)
     }
   }
 
@@ -352,6 +366,45 @@ function App() {
                         ))}
                       </LineChart>
                     </ResponsiveContainer>
+                  </div>
+
+                  {/* Wealth Trajectory Summary - Winners/Losers */}
+                  <div className="win-border-outset bg-white p-4">
+                    <h3 className="font-bold mb-3 text-xs">Wealth Trajectory - Winners & Losers</h3>
+                    {wealthTrajectories.length === 0 ? (
+                      <div className="text-gray-400 text-center py-4">No trajectory data available</div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                        {wealthTrajectories.slice(0, 10).reverse().map((traj) => (
+                          <div key={traj.run_number} className="win-border-inset bg-[#f5f5f5] p-2 text-xs">
+                            <div className="font-bold border-b border-gray-300 pb-1 mb-2">
+                              Run #{traj.run_number}
+                            </div>
+                            <div className="space-y-1">
+                              {Object.entries(traj.gains).map(([agent, gain]) => (
+                                <div key={agent} className="flex justify-between items-center">
+                                  <span className="truncate max-w-[80px]" title={agent}>
+                                    {agent.split('_')[1] || agent}
+                                  </span>
+                                  <span className={`font-bold ${gain >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                    {gain >= 0 ? '+' : ''}{gain.toFixed(1)}
+                                  </span>
+                                </div>
+                              ))}
+                              <div className="border-t border-gray-300 pt-1 mt-1">
+                                <div className="flex justify-between font-bold">
+                                  <span>Winner:</span>
+                                  <span className="text-green-700">{traj.winner?.split('_')[1] || traj.winner}</span>
+                                </div>
+                                <div className="text-right text-green-700 font-bold text-lg">
+                                  +{traj.winner_gain?.toFixed(1)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Runs List */}
