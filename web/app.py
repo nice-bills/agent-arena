@@ -582,6 +582,97 @@ def get_all_agents_profits():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ==================== Wealth Trajectory Endpoints ====================
+
+@app.get("/api/analysis/wealth-trajectory/{run_id}")
+def get_wealth_trajectory(run_id: int):
+    """Get wealth trajectory for all agents in a run - shows token balances over turns."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        # Get all agent states for this run, ordered by turn
+        agent_states = supabase.get_agent_states(run_id)
+
+        # Group by turn, then by agent
+        trajectory = {}
+        for state in agent_states:
+            turn = state["turn"]
+            agent = state["agent_name"]
+            total_tokens = state["token_a_balance"] + state["token_b_balance"]
+
+            if turn not in trajectory:
+                trajectory[turn] = {}
+            trajectory[turn][agent] = round(total_tokens, 2)
+
+        # Convert to array format sorted by turn
+        turns = sorted(trajectory.keys())
+        chart_data = [{"turn": turn, "balances": trajectory[turn]} for turn in turns]
+
+        # Get agent names
+        agents = list(set(state["agent_name"] for state in agent_states))
+
+        return {
+            "run_id": run_id,
+            "agents": agents,
+            "data": chart_data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analysis/all-wealth-trajectories")
+def get_all_wealth_trajectories():
+    """Get wealth trajectory summaries for all completed runs."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        runs = supabase.get_all_runs()
+        completed_runs = [r for r in runs if r.get("status") == "completed"]
+
+        trajectories = []
+        for run in completed_runs:
+            run_id = run["id"]
+            run_number = run.get("run_number", run_id)
+
+            # Get agent states for this run
+            agent_states = supabase.get_agent_states(run_id)
+
+            if not agent_states:
+                continue
+
+            # Calculate start and end wealth per agent
+            agent_start = {}
+            agent_end = {}
+
+            for state in agent_states:
+                agent = state["agent_name"]
+                total = state["token_a_balance"] + state["token_b_balance"]
+                if agent not in agent_start:
+                    agent_start[agent] = total
+                agent_end[agent] = total
+
+            # Calculate gains/losses
+            gains = {}
+            for agent in agent_start:
+                gains[agent] = round(agent_end.get(agent, 0) - agent_start[agent], 2)
+
+            trajectories.append({
+                "run_number": run_number,
+                "agents": list(agent_start.keys()),
+                "start_wealth": agent_start,
+                "end_wealth": agent_end,
+                "gains": gains,
+                "winner": max(gains, key=gains.get) if gains else None,
+                "winner_gain": max(gains.values()) if gains else 0
+            })
+
+        return {"trajectories": trajectories}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/version")
 def get_version():
     """Get server version and git info."""
