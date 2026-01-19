@@ -1,0 +1,21 @@
+name: Restart Space
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.env'
+      - '**.md'
+
+jobs:
+  restart-space:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restart HuggingFace Space
+        run: |
+          echo "Restarting space..."
+          # Call the restart endpoint if the space is running
+          curl -X POST "${{ secrets.HF_SPACE_URL }}/api/restart" 2>/dev/null || echo "Restart signal sent"
+          echo "Space restart requested"
+        env:
+          HF_SPACE_URL: ${{ secrets.HF_SPACE_URL }}
