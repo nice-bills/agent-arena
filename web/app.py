@@ -338,6 +338,37 @@ def fix_summary_runids():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/admin/fix-gini-values")
+def fix_gini_values():
+    """Fix old Gini coefficient values that exceed 1.0."""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+
+    try:
+        # Get all run metrics
+        runs = supabase.get_all_runs()
+        fixed = 0
+
+        for run in runs:
+            run_id = run["id"]
+            metrics = supabase.get_metrics(run_id)
+            if metrics:
+                gini = metrics.get("gini_coefficient", 0)
+                if gini > 1:
+                    clamped_gini = max(0, min(1, gini))
+                    supabase.client.table("run_metrics").update({
+                        "gini_coefficient": clamped_gini
+                    }).eq("id", metrics["id"]).execute()
+                    fixed += 1
+
+        return {
+            "message": f"Fixed {fixed} Gini values",
+            "fixed": fixed
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ==================== Metrics Endpoints ====================
 
 @app.get("/api/metrics/{run_id}")
@@ -389,7 +420,7 @@ def get_action_distribution():
 
         action_counts = {}
         for run in completed_runs:
-            actions = supabase.get_all_actions(run["id"])
+            actions = supabase.get_actions(run["id"])
             for action in actions:
                 action_type = action.get("action_type", "unknown")
                 # Filter out bonus actions for cleaner chart
