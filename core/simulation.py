@@ -427,16 +427,23 @@ class Simulation:
     def _process_alliances(self, turn: int):
         """
         Process alliances and grant bonuses for mutual proposals.
-        When two agents propose alliance to each other, both get a bonus.
+        When two agents propose alliance to each other (even across turns), both get a bonus.
         """
         # Find mutual alliance pairs
         for i, agent_a in enumerate(self.agents):
             for agent_b in self.agents[i + 1:]:
-                # Check if both have proposed alliance to each other
-                if (agent_b.name in agent_a.alliances and
-                    agent_a.name in agent_b.alliances and
-                    agent_a.alliances.get(agent_b.name) == 'proposed' and
-                    agent_b.alliances.get(agent_a.name) == 'proposed'):
+                # Check if both have proposed alliance to each other (any status, not just 'proposed')
+                a_proposed_to_b = agent_b.name in agent_a.alliances
+                b_proposed_to_a = agent_a.name in agent_b.alliances
+
+                if a_proposed_to_b and b_proposed_to_a:
+                    # Get current statuses
+                    status_a = agent_a.alliances.get(agent_b.name, "")
+                    status_b = agent_b.alliances.get(agent_a.name, "")
+
+                    # Skip if already successful
+                    if status_a == 'success' and status_b == 'success':
+                        continue
 
                     # Successful alliance! Grant bonus to both (with fatigue)
                     fatigue_a = agent_a.get_alliance_fatigue(agent_b.name)

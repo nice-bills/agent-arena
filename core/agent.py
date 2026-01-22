@@ -85,6 +85,31 @@ Output ONLY valid JSON with your reasoning."""
 You are losing {penalty:.1f} tokens per turn due to boredom penalty.
 ACT NOW to avoid further losses!"""
 
+        # Calculate market insights
+        reserve_a = pool_state.get('reserve_a', 1000)
+        reserve_b = pool_state.get('reserve_b', 1000)
+        price_ab = pool_state.get('price_ab', 1.0)
+        liquidity = pool_state.get('total_liquidity', 1000000)
+
+        # Determine if pool is imbalanced
+        imbalance = reserve_a / reserve_b if reserve_b > 0 else 1
+        market_advice = ""
+        if imbalance > 1.5:
+            market_advice = "Pool is A-heavy (A is cheaper). Consider buying B or providing A liquidity."
+        elif imbalance < 0.67:
+            market_advice = "Pool is B-heavy (B is cheaper). Consider buying A or providing B liquidity."
+        else:
+            market_advice = "Pool is balanced. Look for other opportunities."
+
+        # Check tokens for trading decisions
+        token_advice = ""
+        if self.token_a < 20 and self.token_b > 50:
+            token_advice = "You have low Token A! Prioritize getting more A."
+        elif self.token_b < 20 and self.token_a > 50:
+            token_advice = "You have low Token B! Prioritize getting more B."
+        elif self.token_a > 150 and self.token_b > 150:
+            token_advice = "You have excess tokens. Consider providing liquidity for fee rewards (+8 bonus)."
+
         prompt = f"""
 You are {self.name}, an AI agent in a DeFi market simulation.
 
@@ -97,9 +122,12 @@ Consecutive inaction: {self.consecutive_inaction}
 {boredom_warning}
 
 === MARKET STATE ===
-Pool reserves: A={pool_state.get('reserve_a', 0):.2f}, B={pool_state.get('reserve_b', 0):.2f}
-Price (A/B): {pool_state.get('price_ab', 0):.4f}
-Total liquidity: {pool_state.get('total_liquidity', 0):.2f}
+Pool reserves: A={reserve_a:.2f}, B={reserve_b:.2f}
+Price (A/B): {price_ab:.4f}
+Total liquidity: {liquidity:.2f}
+IMBALANCE RATIO: {imbalance:.2f}x
+{market_advice}
+{token_advice}
 
 === OTHER AGENTS ===
 {json.dumps(other_states, indent=2)}
@@ -109,17 +137,18 @@ Total liquidity: {pool_state.get('total_liquidity', 0):.2f}
 
 === REWARDS FOR ACTIONS ===
 - SWAP: Active trading +3 tokens, profitable swap +5 extra!
-- PROVIDE_LIQUIDITY: Earns fees from all swaps, +8 bonus tokens
+- PROVIDE_LIQUIDITY: Earns fees from all swaps, +8 bonus tokens (BEST for high balances)
 - PROPOSE_ALLIANCE: If they accept, you BOTH get +4 bonus tokens (repeating gives less!)
 - COORDINATED TRADES: Trade during volatility +5 bonus tokens!
 - POSITIVE PROFIT: End turn with profit = +15 bonus tokens!
 - ESCAPE VELOCITY: TOP AGENT gets 2x on ALL bonuses!
 
-=== AVAILABLE ACTIONS ===
-1. "swap": Trade tokens (specify from, to, amount) - ACTIVE TRADING
-2. "provide_liquidity": Add liquidity to pool (specify amounts) - EARNS FEES + BONUS
-3. "propose_alliance": Suggest collaboration (specify agent name) - CAN GIVE BONUS
-4. "do_nothing": Wait - CAUSES BOREDOM PENALTY!
+=== DECISION GUIDE ===
+- If tokens > 150 each: PROVIDE_LIQUIDITY (best returns +8 bonus)
+- If pool imbalanced > 1.5x: Buy the cheaper token
+- If tokens < 20 of either: Prioritize getting more of that token
+- If you have allies: Consider coordinated actions
+- DO NOT do_nothing - you lose 10 tokens/turn!
 
 Output JSON:
 {{
